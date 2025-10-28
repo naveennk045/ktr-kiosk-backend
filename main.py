@@ -1,44 +1,70 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from service import Repository
+from beanie import init_beanie
+from motor.motor_asyncio import AsyncIOMotorClient
+from typing import List
 
+from config import settings
+from models import Category, MenuItem
 
-app = FastAPI(title="Menu API")
+app = FastAPI(
+    title=settings.APP_NAME,
+    debug=settings.DEBUG_MODE
+)
 
 app.add_middleware(
-   CORSMiddleware,
+    CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
+
 @app.on_event("startup")
-async def startup_event():
-    # initialize DB once on startup
-    try:
-        Repository.initialize_database("assets/database.json")
-    except ValueError as e:
-        # fail fast if DB is malformed
-        raise RuntimeError(f"Failed to initialize database: {e}") from e
+async def init_db():
+    """
+    Initialize the Beanie connection to MongoDB
+    """
+    print("Connecting to MongoDB...")
+    client = AsyncIOMotorClient(settings.DB_URL)
+
+    # --- THIS IS THE FIX ---
+    # Explicitly set the database name, e.g., "restaurant_db"
+    await init_beanie(
+        database=client.restaurant_db,  # <- CHANGED
+        document_models=[Category, MenuItem]  # Tell Beanie about our models
+    )
+    # Added a more descriptive print message
+    print(f"Connection to database '{client.restaurant_db.name}' successful!")
+# --- API Endpoints ---
+
+@app.get("/")
+def home():
+    return {"message": f"Welcome to {settings.APP_NAME}"}
 
 
-@app.get("/categories")
+@app.get("/categories", response_model=List[Category])
 async def list_categories():
-    return JSONResponse(content=Repository.get_categories())
+    """
+    Get all categories from the MongoDB 'categories' collection.
+    """
+    categories = await Category.find_all().to_list()
+    return categories
 
 
-@app.get("/categories/{category_id}/items")
+@app.get("/categories/{category_id}/items", response_model=List[MenuItem])
 async def list_items_by_category(category_id: int):
-    # validate category exists
-    categories = Repository.get_categories()
-    if not any(cat.get("id") == category_id for cat in categories):
+    """
+    Get all menu items that belong to a specific category.
+    We query by the 'legacy_id' we saved.
+    """
+
+    category = await Category.find_one(Category.legacy_id == category_id)
+
+    if not category:
         raise HTTPException(status_code=404, detail="Category not found")
-    items = Repository.get_items_by_category(category_id)
-    return JSONResponse(content=items)
 
+    items = await MenuItem.find(MenuItem.category.id == category.id).to_list()
+    return items
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
