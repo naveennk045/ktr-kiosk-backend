@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Menu Items</title>
+  </head>
+  <body>
+    <h1>Menu Items</h1>
+    <p><a href="/admin">Back</a></p>
+    <table border="1" cellpadding="6" cellspacing="0">
+      <thead>
+        <tr>
+          <th>Legacy ID</th>
+          <th>Name</th>
+          <th>Price</th>
+          <th>Category</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in items %}
+        <tr>
+          <td>{{ i.legacy_id }}</td>
+          <td>{{ i.name }}</td>
+          <td>{{ i.price }}</td>
+          <td>{{ i.category.id if i.category else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+  </html>
+
+
