@@ -4,7 +4,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
-    DB_URL: str
+    MONGO_DB_URL: str
+    POSTGRES_DB_URL: str | None = None
 
 
     APP_NAME: str = "API App"
