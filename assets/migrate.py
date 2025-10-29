@@ -3,7 +3,6 @@ import json
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 
-# Import settings and all models
 from config import settings
 from app.db.models import Category, MenuItem, Addon, Customization, CustomizationOption
 

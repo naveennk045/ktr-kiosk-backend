@@ -57,7 +57,7 @@
       "name": "Butter Chicken",
       "description": "Tender chicken in creamy tomato sauce",
       "price": 12.99,
-      "imageSrc": "/Images/butter-chicken.jpg",
+      "imageSrc": "butter-chicken-curry_nj1vyx",
       "category_id": 1,
       "customizations": [
         {
@@ -137,7 +137,7 @@
       "name": "Hyderabadi Biryani",
       "description": "Fragrant rice with spiced meat",
       "price": 11.99,
-      "imageSrc": "/Images/biryani.jpg",
+      "imageSrc": "biryani-rice-dish_unei85",
       "category_id": 1,
       "customizations": [
         {
@@ -240,7 +240,7 @@
       "name": "Samosa (3 pcs)",
       "description": "Crispy pastry with spiced filling",
       "price": 4.99,
-      "imageSrc": "/Images/samosa.jpg",
+      "imageSrc": "samosa-fried-pastry_qovnd8",
       "category_id": 1,
       "customizations": [],
       "addons": [
@@ -271,7 +271,7 @@
       "name": "Paneer Tikka",
       "description": "Grilled cottage cheese with spices",
       "price": 9.99,
-      "imageSrc": "/Images/paneer-tikka.jpg",
+      "imageSrc": "paneer-tikka-grilled_c7y8wl",
       "category_id": 1,
       "customizations": [
         {
@@ -293,11 +293,6 @@
               "value": "hot",
               "label": "Hot",
               "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
             }
           ],
           "required": true
@@ -305,19 +300,9 @@
       ],
       "addons": [
         {
-          "id": "raita",
-          "name": "Raita",
-          "price": 1.99
-        },
-        {
-          "id": "pickle",
-          "name": "Pickle",
+          "id": "mint_chutney",
+          "name": "Mint Chutney",
           "price": 0.99
-        },
-        {
-          "id": "papadum",
-          "name": "Papadum",
-          "price": 1.5
         },
         {
           "id": "extra_naan",
@@ -351,9 +336,28 @@
       "name": "Garlic Naan",
       "description": "Soft flatbread with garlic butter",
       "price": 3.99,
-      "imageSrc": "/Images/garlic-naan.jpg",
+      "imageSrc": "garlic-naan_rnrorr",
       "category_id": 1,
-      "customizations": [],
+      "customizations": [
+        {
+          "id": "butter_option",
+          "name": "Butter",
+          "type": "radio",
+          "options": [
+            {
+              "value": "regular",
+              "label": "Regular",
+              "price_impact": 0
+            },
+            {
+              "value": "extra",
+              "label": "Extra Butter",
+              "price_impact": 0.5
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
         {
           "id": "coke",
@@ -379,91 +383,50 @@
     },
     {
       "id": 6,
-      "name": "Chicken Tikka Masala",
-      "description": "Marinated chicken in spiced curry sauce",
-      "price": 13.49,
-      "imageSrc": "/Images/tikka-masala.jpg",
+      "name": "Masala Chai",
+      "description": "Traditional Indian spiced tea",
+      "price": 2.99,
+      "imageSrc": "masala-chai-tea_jqbfu5",
       "category_id": 1,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "sugar_level",
+          "name": "Sugar Level",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "no_sugar",
+              "label": "No Sugar",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
+              "value": "less_sugar",
+              "label": "Less Sugar",
               "price_impact": 0
             },
             {
-              "value": "hot",
-              "label": "Hot",
+              "value": "regular",
+              "label": "Regular",
               "price_impact": 0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "extra_sweet",
+              "label": "Extra Sweet",
+              "price_impact": 0
             }
           ],
           "required": true
         }
       ],
-      "addons": [
-        {
-          "id": "raita",
-          "name": "Raita",
-          "price": 1.99
-        },
-        {
-          "id": "pickle",
-          "name": "Pickle",
-          "price": 0.99
-        },
-        {
-          "id": "papadum",
-          "name": "Papadum",
-          "price": 1.5
-        },
-        {
-          "id": "extra_naan",
-          "name": "Extra Naan",
-          "price": 2.5
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
+      "addons": []
     },
     {
       "id": 7,
-      "name": "Palak Paneer",
-      "description": "Cottage cheese in spinach gravy",
-      "price": 10.99,
-      "imageSrc": "/Images/palak-paneer.jpg",
-      "category_id": 1,
+      "name": "Kung Pao Chicken",
+      "description": "Spicy stir-fried chicken with peanuts",
+      "price": 11.99,
+      "imageSrc": "kung-pao-chicken_pex4ip",
+      "category_id": 2,
       "customizations": [
         {
           "id": "spice_level",
@@ -496,24 +459,14 @@
       ],
       "addons": [
         {
-          "id": "raita",
-          "name": "Raita",
-          "price": 1.99
+          "id": "extra_rice",
+          "name": "Extra Rice",
+          "price": 2.0
         },
         {
-          "id": "pickle",
-          "name": "Pickle",
-          "price": 0.99
-        },
-        {
-          "id": "papadum",
-          "name": "Papadum",
-          "price": 1.5
-        },
-        {
-          "id": "extra_naan",
-          "name": "Extra Naan",
-          "price": 2.5
+          "id": "spring_roll",
+          "name": "Spring Roll",
+          "price": 3.5
         },
         {
           "id": "coke",
@@ -539,11 +492,11 @@
     },
     {
       "id": 8,
-      "name": "Tandoori Chicken",
-      "description": "Clay oven roasted chicken",
-      "price": 14.99,
-      "imageSrc": "/Images/tandoori-chicken.jpg",
-      "category_id": 1,
+      "name": "Mapo Tofu",
+      "description": "Spicy tofu in fermented bean sauce",
+      "price": 10.99,
+      "imageSrc": "mapo-tofu_obsi69",
+      "category_id": 2,
       "customizations": [
         {
           "id": "spice_level",
@@ -564,11 +517,6 @@
               "value": "hot",
               "label": "Hot",
               "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
             }
           ],
           "required": true
@@ -576,24 +524,9 @@
       ],
       "addons": [
         {
-          "id": "raita",
-          "name": "Raita",
-          "price": 1.99
-        },
-        {
-          "id": "pickle",
-          "name": "Pickle",
-          "price": 0.99
-        },
-        {
-          "id": "papadum",
-          "name": "Papadum",
-          "price": 1.5
-        },
-        {
-          "id": "extra_naan",
-          "name": "Extra Naan",
-          "price": 2.5
+          "id": "extra_rice",
+          "name": "Extra Rice",
+          "price": 2.0
         },
         {
           "id": "coke",
@@ -619,36 +552,36 @@
     },
     {
       "id": 9,
-      "name": "Dal Makhani",
-      "description": "Creamy black lentils",
+      "name": "Fried Rice",
+      "description": "Classic Chinese fried rice with vegetables",
       "price": 8.99,
-      "imageSrc": "/Images/dal-makhani.jpg",
-      "category_id": 1,
+      "imageSrc": "fried-rice_stnpoz",
+      "category_id": 2,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "protein_choice",
+          "name": "Add Protein",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "none",
+              "label": "Vegetable Only",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
+              "value": "egg",
+              "label": "With Egg",
+              "price_impact": 1.0
             },
             {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
+              "value": "chicken",
+              "label": "With Chicken",
+              "price_impact": 2.0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "shrimp",
+              "label": "With Shrimp",
+              "price_impact": 3.0
             }
           ],
           "required": true
@@ -656,24 +589,14 @@
       ],
       "addons": [
         {
-          "id": "raita",
-          "name": "Raita",
-          "price": 1.99
+          "id": "soy_sauce",
+          "name": "Extra Soy Sauce",
+          "price": 0.5
         },
         {
-          "id": "pickle",
-          "name": "Pickle",
-          "price": 0.99
-        },
-        {
-          "id": "papadum",
-          "name": "Papadum",
-          "price": 1.5
-        },
-        {
-          "id": "extra_naan",
-          "name": "Extra Naan",
-          "price": 2.5
+          "id": "spring_roll",
+          "name": "Spring Roll",
+          "price": 3.5
         },
         {
           "id": "coke",
@@ -699,36 +622,36 @@
     },
     {
       "id": 10,
-      "name": "Chole Bhature",
-      "description": "Spiced chickpeas with fried bread",
-      "price": 9.49,
-      "imageSrc": "/Images/chole-bhature.jpg",
-      "category_id": 1,
+      "name": "Chow Mein",
+      "description": "Stir-fried noodles with vegetables",
+      "price": 9.99,
+      "imageSrc": "chow-mein-noodles_ywmukz",
+      "category_id": 2,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "protein_choice",
+          "name": "Add Protein",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "vegetable",
+              "label": "Vegetable Only",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
+              "value": "chicken",
+              "label": "Chicken",
+              "price_impact": 2.0
             },
             {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
+              "value": "beef",
+              "label": "Beef",
+              "price_impact": 2.5
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "shrimp",
+              "label": "Shrimp",
+              "price_impact": 3.0
             }
           ],
           "required": true
@@ -736,24 +659,9 @@
       ],
       "addons": [
         {
-          "id": "raita",
-          "name": "Raita",
-          "price": 1.99
-        },
-        {
-          "id": "pickle",
-          "name": "Pickle",
-          "price": 0.99
-        },
-        {
-          "id": "papadum",
-          "name": "Papadum",
-          "price": 1.5
-        },
-        {
-          "id": "extra_naan",
-          "name": "Extra Naan",
-          "price": 2.5
+          "id": "spring_roll",
+          "name": "Spring Roll",
+          "price": 3.5
         },
         {
           "id": "coke",
@@ -779,36 +687,36 @@
     },
     {
       "id": 11,
-      "name": "Rogan Josh",
-      "description": "Aromatic lamb curry",
-      "price": 15.99,
-      "imageSrc": "/Images/rogan-josh.jpg",
-      "category_id": 1,
+      "name": "Steamed Dumplings",
+      "description": "Delicate steamed dumplings (6 pcs)",
+      "price": 7.99,
+      "imageSrc": "steamed-dumplings_locgfm",
+      "category_id": 2,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "filling",
+          "name": "Filling",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "vegetable",
+              "label": "Vegetable",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
+              "value": "pork",
+              "label": "Pork",
+              "price_impact": 1.0
             },
             {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
+              "value": "chicken",
+              "label": "Chicken",
+              "price_impact": 1.0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "shrimp",
+              "label": "Shrimp",
+              "price_impact": 2.0
             }
           ],
           "required": true
@@ -816,24 +724,14 @@
       ],
       "addons": [
         {
-          "id": "raita",
-          "name": "Raita",
-          "price": 1.99
+          "id": "soy_sauce",
+          "name": "Soy Sauce",
+          "price": 0.5
         },
         {
-          "id": "pickle",
-          "name": "Pickle",
-          "price": 0.99
-        },
-        {
-          "id": "papadum",
-          "name": "Papadum",
-          "price": 1.5
-        },
-        {
-          "id": "extra_naan",
-          "name": "Extra Naan",
-          "price": 2.5
+          "id": "chili_oil",
+          "name": "Chili Oil",
+          "price": 0.5
         },
         {
           "id": "coke",
@@ -859,11 +757,11 @@
     },
     {
       "id": 12,
-      "name": "Masala Dosa",
-      "description": "Crispy rice crepe with potato filling",
-      "price": 7.99,
-      "imageSrc": "/Images/masala-dosa.jpg",
-      "category_id": 1,
+      "name": "Hot and Sour Soup",
+      "description": "Traditional spicy and tangy soup",
+      "price": 5.99,
+      "imageSrc": "chow-mein-noodles_ywmukz",
+      "category_id": 2,
       "customizations": [
         {
           "id": "spice_level",
@@ -884,37 +782,12 @@
               "value": "hot",
               "label": "Hot",
               "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
             }
           ],
           "required": true
         }
       ],
       "addons": [
-        {
-          "id": "raita",
-          "name": "Raita",
-          "price": 1.99
-        },
-        {
-          "id": "pickle",
-          "name": "Pickle",
-          "price": 0.99
-        },
-        {
-          "id": "papadum",
-          "name": "Papadum",
-          "price": 1.5
-        },
-        {
-          "id": "extra_naan",
-          "name": "Extra Naan",
-          "price": 2.5
-        },
         {
           "id": "coke",
           "name": "Coca-Cola",
@@ -939,36 +812,59 @@
     },
     {
       "id": 13,
-      "name": "Kung Pao Chicken",
-      "description": "Stir-fried chicken with peanuts and vegetables",
-      "price": 11.99,
-      "imageSrc": "/Images/kung-pao-chicken.jpg",
-      "category_id": 2,
+      "name": "Margherita Pizza",
+      "description": "Classic pizza with tomato, mozzarella, and basil",
+      "price": 13.99,
+      "imageSrc": "margherita-pizza_nra80m",
+      "category_id": 3,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "size",
+          "name": "Size",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
-              "price_impact": 0
+              "value": "small",
+              "label": "Small (10 inch)",
+              "price_impact": -2.0
             },
             {
               "value": "medium",
-              "label": "Medium",
+              "label": "Medium (12 inch)",
               "price_impact": 0
             },
             {
-              "value": "hot",
-              "label": "Hot",
+              "value": "large",
+              "label": "Large (14 inch)",
+              "price_impact": 3.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "crust",
+          "name": "Crust Type",
+          "type": "radio",
+          "options": [
+            {
+              "value": "regular",
+              "label": "Regular",
               "price_impact": 0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "thin",
+              "label": "Thin Crust",
+              "price_impact": 0
+            },
+            {
+              "value": "thick",
+              "label": "Thick Crust",
+              "price_impact": 1.0
+            },
+            {
+              "value": "stuffed",
+              "label": "Stuffed Crust",
+              "price_impact": 2.5
             }
           ],
           "required": true
@@ -976,19 +872,24 @@
       ],
       "addons": [
         {
-          "id": "spring_roll",
-          "name": "Spring Roll",
-          "price": 2.99
+          "id": "extra_cheese",
+          "name": "Extra Cheese",
+          "price": 2.0
         },
         {
-          "id": "fortune_cookie",
-          "name": "Fortune Cookie",
-          "price": 0.5
+          "id": "olives",
+          "name": "Olives",
+          "price": 1.5
         },
         {
-          "id": "extra_sauce",
-          "name": "Extra Sauce",
-          "price": 1.0
+          "id": "mushrooms",
+          "name": "Mushrooms",
+          "price": 1.5
+        },
+        {
+          "id": "pepperoni",
+          "name": "Pepperoni",
+          "price": 2.5
         },
         {
           "id": "coke",
@@ -1014,27 +915,46 @@
     },
     {
       "id": 14,
-      "name": "Sweet and Sour Pork",
-      "description": "Crispy pork in tangy sauce",
-      "price": 12.49,
-      "imageSrc": "/Images/sweet-sour-pork.jpg",
-      "category_id": 2,
-      "customizations": [],
+      "name": "Spaghetti Carbonara",
+      "description": "Creamy pasta with bacon and parmesan",
+      "price": 12.99,
+      "imageSrc": "spaghetti-carbonara_gxsgtx",
+      "category_id": 3,
+      "customizations": [
+        {
+          "id": "pasta_type",
+          "name": "Pasta Type",
+          "type": "radio",
+          "options": [
+            {
+              "value": "spaghetti",
+              "label": "Spaghetti",
+              "price_impact": 0
+            },
+            {
+              "value": "fettuccine",
+              "label": "Fettuccine",
+              "price_impact": 0
+            },
+            {
+              "value": "penne",
+              "label": "Penne",
+              "price_impact": 0
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
         {
-          "id": "spring_roll",
-          "name": "Spring Roll",
-          "price": 2.99
+          "id": "garlic_bread",
+          "name": "Garlic Bread",
+          "price": 3.5
         },
         {
-          "id": "fortune_cookie",
-          "name": "Fortune Cookie",
-          "price": 0.5
-        },
-        {
-          "id": "extra_sauce",
-          "name": "Extra Sauce",
-          "price": 1.0
+          "id": "extra_parmesan",
+          "name": "Extra Parmesan",
+          "price": 1.5
         },
         {
           "id": "coke",
@@ -1060,51 +980,22 @@
     },
     {
       "id": 15,
-      "name": "Steamed Dumplings (8 pcs)",
-      "description": "Delicate dumplings with savory filling",
-      "price": 8.99,
-      "imageSrc": "/Images/dumplings.jpg",
-      "category_id": 2,
-      "customizations": [
-        {
-          "id": "dumpling_filling",
-          "name": "Filling",
-          "type": "radio",
-          "options": [
-            {
-              "value": "pork",
-              "label": "Pork",
-              "price_impact": 0
-            },
-            {
-              "value": "chicken",
-              "label": "Chicken",
-              "price_impact": 0
-            },
-            {
-              "value": "vegetable",
-              "label": "Vegetable",
-              "price_impact": -0.5
-            }
-          ],
-          "required": true
-        }
-      ],
+      "name": "Lasagna Bolognese",
+      "description": "Layered pasta with meat sauce and cheese",
+      "price": 14.99,
+      "imageSrc": "lasagna-bolognese_sb21iw",
+      "category_id": 3,
+      "customizations": [],
       "addons": [
         {
-          "id": "spring_roll",
-          "name": "Spring Roll",
-          "price": 2.99
+          "id": "garlic_bread",
+          "name": "Garlic Bread",
+          "price": 3.5
         },
         {
-          "id": "fortune_cookie",
-          "name": "Fortune Cookie",
-          "price": 0.5
-        },
-        {
-          "id": "extra_sauce",
-          "name": "Extra Sauce",
-          "price": 1.0
+          "id": "side_salad",
+          "name": "Side Salad",
+          "price": 4.5
         },
         {
           "id": "coke",
@@ -1130,36 +1021,31 @@
     },
     {
       "id": 16,
-      "name": "Chow Mein",
-      "description": "Stir-fried noodles with vegetables",
-      "price": 10.99,
-      "imageSrc": "/Images/chow-mein.jpg",
-      "category_id": 2,
+      "name": "Mushroom Risotto",
+      "description": "Creamy Italian rice with mushrooms",
+      "price": 13.99,
+      "imageSrc": "mushroom-risotto_hjyqd8",
+      "category_id": 3,
       "customizations": [
         {
-          "id": "protein_choice",
-          "name": "Protein Choice",
+          "id": "mushroom_type",
+          "name": "Mushroom Type",
           "type": "radio",
           "options": [
             {
-              "value": "chicken",
-              "label": "Chicken",
+              "value": "button",
+              "label": "Button Mushrooms",
               "price_impact": 0
             },
             {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.5
-            },
-            {
-              "value": "shrimp",
-              "label": "Shrimp",
+              "value": "mixed",
+              "label": "Mixed Mushrooms",
               "price_impact": 2.0
             },
             {
-              "value": "tofu",
-              "label": "Tofu",
-              "price_impact": -0.5
+              "value": "truffle",
+              "label": "Truffle Mushrooms",
+              "price_impact": 5.0
             }
           ],
           "required": true
@@ -1167,19 +1053,14 @@
       ],
       "addons": [
         {
-          "id": "spring_roll",
-          "name": "Spring Roll",
-          "price": 2.99
+          "id": "extra_parmesan",
+          "name": "Extra Parmesan",
+          "price": 1.5
         },
         {
-          "id": "fortune_cookie",
-          "name": "Fortune Cookie",
-          "price": 0.5
-        },
-        {
-          "id": "extra_sauce",
-          "name": "Extra Sauce",
-          "price": 1.0
+          "id": "garlic_bread",
+          "name": "Garlic Bread",
+          "price": 3.5
         },
         {
           "id": "coke",
@@ -1205,36 +1086,31 @@
     },
     {
       "id": 17,
-      "name": "Fried Rice",
-      "description": "Classic fried rice with egg and vegetables",
-      "price": 9.99,
-      "imageSrc": "/Images/fried-rice.jpg",
-      "category_id": 2,
+      "name": "Caprese Salad",
+      "description": "Fresh mozzarella, tomatoes, and basil",
+      "price": 8.99,
+      "imageSrc": "spaghetti-carbonara_gxsgtx",
+      "category_id": 3,
       "customizations": [
         {
-          "id": "protein_choice",
-          "name": "Protein Choice",
+          "id": "dressing",
+          "name": "Dressing",
           "type": "radio",
           "options": [
             {
-              "value": "chicken",
-              "label": "Chicken",
+              "value": "balsamic",
+              "label": "Balsamic Vinegar",
               "price_impact": 0
             },
             {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.5
+              "value": "olive_oil",
+              "label": "Olive Oil",
+              "price_impact": 0
             },
             {
-              "value": "shrimp",
-              "label": "Shrimp",
-              "price_impact": 2.0
-            },
-            {
-              "value": "tofu",
-              "label": "Tofu",
-              "price_impact": -0.5
+              "value": "both",
+              "label": "Both",
+              "price_impact": 0.5
             }
           ],
           "required": true
@@ -1242,19 +1118,9 @@
       ],
       "addons": [
         {
-          "id": "spring_roll",
-          "name": "Spring Roll",
-          "price": 2.99
-        },
-        {
-          "id": "fortune_cookie",
-          "name": "Fortune Cookie",
-          "price": 0.5
-        },
-        {
-          "id": "extra_sauce",
-          "name": "Extra Sauce",
-          "price": 1.0
+          "id": "garlic_bread",
+          "name": "Garlic Bread",
+          "price": 3.5
         },
         {
           "id": "coke",
@@ -1280,36 +1146,54 @@
     },
     {
       "id": 18,
-      "name": "General Tso's Chicken",
-      "description": "Crispy chicken in sweet and spicy sauce",
-      "price": 12.99,
-      "imageSrc": "/Images/general-tso.jpg",
-      "category_id": 2,
+      "name": "Tacos",
+      "description": "Soft or crispy tacos with your choice of filling (3 pcs)",
+      "price": 9.99,
+      "imageSrc": "samosa-fried-pastry_qovnd8",
+      "category_id": 4,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "shell_type",
+          "name": "Shell Type",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "soft",
+              "label": "Soft Shell",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
+              "value": "crispy",
+              "label": "Crispy Shell",
+              "price_impact": 0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "protein",
+          "name": "Protein",
+          "type": "radio",
+          "options": [
+            {
+              "value": "chicken",
+              "label": "Chicken",
               "price_impact": 0
             },
             {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
+              "value": "beef",
+              "label": "Beef",
+              "price_impact": 1.0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "pork",
+              "label": "Pork",
+              "price_impact": 1.0
+            },
+            {
+              "value": "vegetarian",
+              "label": "Vegetarian",
+              "price_impact": -0.5
             }
           ],
           "required": true
@@ -1317,18 +1201,18 @@
       ],
       "addons": [
         {
-          "id": "spring_roll",
-          "name": "Spring Roll",
-          "price": 2.99
+          "id": "guacamole",
+          "name": "Guacamole",
+          "price": 2.5
         },
         {
-          "id": "fortune_cookie",
-          "name": "Fortune Cookie",
-          "price": 0.5
+          "id": "sour_cream",
+          "name": "Sour Cream",
+          "price": 1.5
         },
         {
-          "id": "extra_sauce",
-          "name": "Extra Sauce",
+          "id": "extra_salsa",
+          "name": "Extra Salsa",
           "price": 1.0
         },
         {
@@ -1355,36 +1239,59 @@
     },
     {
       "id": 19,
-      "name": "Mongolian Beef",
-      "description": "Tender beef with scallions",
-      "price": 13.99,
-      "imageSrc": "/Images/mongolian-beef.jpg",
-      "category_id": 2,
+      "name": "Burrito",
+      "description": "Large flour tortilla filled with rice, beans, and protein",
+      "price": 11.99,
+      "imageSrc": "fried-rice_stnpoz",
+      "category_id": 4,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "protein",
+          "name": "Protein",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "chicken",
+              "label": "Chicken",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
+              "value": "beef",
+              "label": "Beef",
+              "price_impact": 1.5
+            },
+            {
+              "value": "pork",
+              "label": "Carnitas Pork",
+              "price_impact": 1.5
+            },
+            {
+              "value": "vegetarian",
+              "label": "Vegetarian",
+              "price_impact": -1.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "beans",
+          "name": "Beans",
+          "type": "radio",
+          "options": [
+            {
+              "value": "black",
+              "label": "Black Beans",
               "price_impact": 0
             },
             {
-              "value": "hot",
-              "label": "Hot",
+              "value": "pinto",
+              "label": "Pinto Beans",
               "price_impact": 0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "no_beans",
+              "label": "No Beans",
+              "price_impact": 0
             }
           ],
           "required": true
@@ -1392,19 +1299,19 @@
       ],
       "addons": [
         {
-          "id": "spring_roll",
-          "name": "Spring Roll",
-          "price": 2.99
+          "id": "guacamole",
+          "name": "Guacamole",
+          "price": 2.5
         },
         {
-          "id": "fortune_cookie",
-          "name": "Fortune Cookie",
-          "price": 0.5
+          "id": "sour_cream",
+          "name": "Sour Cream",
+          "price": 1.5
         },
         {
-          "id": "extra_sauce",
-          "name": "Extra Sauce",
-          "price": 1.0
+          "id": "extra_cheese",
+          "name": "Extra Cheese",
+          "price": 2.0
         },
         {
           "id": "coke",
@@ -1430,13 +1337,57 @@
     },
     {
       "id": 20,
-      "name": "Spring Rolls (4 pcs)",
-      "description": "Crispy vegetable spring rolls",
-      "price": 5.99,
-      "imageSrc": "/Images/spring-rolls.jpg",
-      "category_id": 2,
-      "customizations": [],
+      "name": "Quesadilla",
+      "description": "Grilled tortilla filled with cheese and your choice",
+      "price": 8.99,
+      "imageSrc": "garlic-naan_rnrorr",
+      "category_id": 4,
+      "customizations": [
+        {
+          "id": "filling",
+          "name": "Additional Filling",
+          "type": "radio",
+          "options": [
+            {
+              "value": "cheese_only",
+              "label": "Cheese Only",
+              "price_impact": 0
+            },
+            {
+              "value": "chicken",
+              "label": "Chicken",
+              "price_impact": 2.0
+            },
+            {
+              "value": "beef",
+              "label": "Beef",
+              "price_impact": 2.5
+            },
+            {
+              "value": "vegetable",
+              "label": "Vegetables",
+              "price_impact": 1.0
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
+        {
+          "id": "guacamole",
+          "name": "Guacamole",
+          "price": 2.5
+        },
+        {
+          "id": "sour_cream",
+          "name": "Sour Cream",
+          "price": 1.5
+        },
+        {
+          "id": "salsa",
+          "name": "Salsa",
+          "price": 1.0
+        },
         {
           "id": "coke",
           "name": "Coca-Cola",
@@ -1461,42 +1412,52 @@
     },
     {
       "id": 21,
-      "name": "Hot and Sour Soup",
-      "description": "Spicy and tangy soup",
-      "price": 6.99,
-      "imageSrc": "/Images/hot-sour-soup.jpg",
-      "category_id": 2,
+      "name": "Nachos",
+      "description": "Crispy tortilla chips with cheese and toppings",
+      "price": 7.99,
+      "imageSrc": "samosa-fried-pastry_qovnd8",
+      "category_id": 4,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "size",
+          "name": "Size",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "regular",
+              "label": "Regular",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
-            },
-            {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "large",
+              "label": "Large",
+              "price_impact": 3.0
             }
           ],
           "required": true
         }
       ],
       "addons": [
+        {
+          "id": "guacamole",
+          "name": "Guacamole",
+          "price": 2.5
+        },
+        {
+          "id": "sour_cream",
+          "name": "Sour Cream",
+          "price": 1.5
+        },
+        {
+          "id": "jalapenos",
+          "name": "Jalapeños",
+          "price": 1.0
+        },
+        {
+          "id": "extra_cheese",
+          "name": "Extra Cheese",
+          "price": 2.0
+        },
         {
           "id": "coke",
           "name": "Coca-Cola",
@@ -1521,36 +1482,54 @@
     },
     {
       "id": 22,
-      "name": "Szechuan Shrimp",
-      "description": "Spicy stir-fried shrimp",
-      "price": 14.99,
-      "imageSrc": "/Images/szechuan-shrimp.jpg",
-      "category_id": 2,
+      "name": "Enchiladas",
+      "description": "Rolled tortillas with filling and sauce (3 pcs)",
+      "price": 10.99,
+      "imageSrc": "samosa-fried-pastry_qovnd8",
+      "category_id": 4,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "sauce",
+          "name": "Sauce",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "red",
+              "label": "Red Sauce",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
+              "value": "green",
+              "label": "Green Sauce",
               "price_impact": 0
             },
             {
-              "value": "hot",
-              "label": "Hot",
+              "value": "mole",
+              "label": "Mole Sauce",
+              "price_impact": 1.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "protein",
+          "name": "Protein",
+          "type": "radio",
+          "options": [
+            {
+              "value": "chicken",
+              "label": "Chicken",
               "price_impact": 0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "beef",
+              "label": "Beef",
+              "price_impact": 1.0
+            },
+            {
+              "value": "cheese",
+              "label": "Cheese",
+              "price_impact": 0
             }
           ],
           "required": true
@@ -1558,19 +1537,14 @@
       ],
       "addons": [
         {
-          "id": "spring_roll",
-          "name": "Spring Roll",
-          "price": 2.99
+          "id": "sour_cream",
+          "name": "Sour Cream",
+          "price": 1.5
         },
         {
-          "id": "fortune_cookie",
-          "name": "Fortune Cookie",
-          "price": 0.5
-        },
-        {
-          "id": "extra_sauce",
-          "name": "Extra Sauce",
-          "price": 1.0
+          "id": "guacamole",
+          "name": "Guacamole",
+          "price": 2.5
         },
         {
           "id": "coke",
@@ -1596,21 +1570,39 @@
     },
     {
       "id": 23,
-      "name": "Margherita Pizza",
-      "description": "Classic pizza with tomato, mozzarella, and basil",
-      "price": 11.99,
-      "imageSrc": "/Images/margherita-pizza.jpg",
-      "category_id": 3,
+      "name": "Classic Burger",
+      "description": "Juicy beef patty with lettuce, tomato, and cheese",
+      "price": 10.99,
+      "imageSrc": "butter-chicken-curry_nj1vyx",
+      "category_id": 5,
       "customizations": [
         {
-          "id": "size",
-          "name": "Size",
+          "id": "patty_count",
+          "name": "Patty",
           "type": "radio",
           "options": [
             {
-              "value": "small",
-              "label": "Small",
-              "price_impact": -2.0
+              "value": "single",
+              "label": "Single Patty",
+              "price_impact": 0
+            },
+            {
+              "value": "double",
+              "label": "Double Patty",
+              "price_impact": 3.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "cooking",
+          "name": "Cooking",
+          "type": "radio",
+          "options": [
+            {
+              "value": "rare",
+              "label": "Rare",
+              "price_impact": 0
             },
             {
               "value": "medium",
@@ -1618,9 +1610,9 @@
               "price_impact": 0
             },
             {
-              "value": "large",
-              "label": "Large",
-              "price_impact": 2.5
+              "value": "well_done",
+              "label": "Well Done",
+              "price_impact": 0
             }
           ],
           "required": true
@@ -1628,9 +1620,9 @@
       ],
       "addons": [
         {
-          "id": "garlic_bread",
-          "name": "Garlic Bread",
-          "price": 3.99
+          "id": "bacon",
+          "name": "Bacon",
+          "price": 2.5
         },
         {
           "id": "extra_cheese",
@@ -1638,9 +1630,14 @@
           "price": 1.5
         },
         {
-          "id": "meatballs",
-          "name": "Meatballs (3 pcs)",
-          "price": 4.5
+          "id": "avocado",
+          "name": "Avocado",
+          "price": 2.0
+        },
+        {
+          "id": "onion_rings",
+          "name": "Onion Rings",
+          "price": 3.5
         },
         {
           "id": "coke",
@@ -1666,36 +1663,49 @@
     },
     {
       "id": 24,
-      "name": "Spaghetti Carbonara",
-      "description": "Pasta with eggs, cheese, and pancetta",
-      "price": 13.49,
-      "imageSrc": "/Images/carbonara.jpg",
-      "category_id": 3,
+      "name": "French Fries",
+      "description": "Crispy golden fries",
+      "price": 4.99,
+      "imageSrc": "samosa-fried-pastry_qovnd8",
+      "category_id": 5,
       "customizations": [
         {
-          "id": "pasta_type",
-          "name": "Pasta Type",
+          "id": "size",
+          "name": "Size",
           "type": "radio",
           "options": [
             {
-              "value": "spaghetti",
-              "label": "Spaghetti",
+              "value": "regular",
+              "label": "Regular",
               "price_impact": 0
             },
             {
-              "value": "penne",
-              "label": "Penne",
+              "value": "large",
+              "label": "Large",
+              "price_impact": 2.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "seasoning",
+          "name": "Seasoning",
+          "type": "radio",
+          "options": [
+            {
+              "value": "salt",
+              "label": "Regular Salt",
               "price_impact": 0
             },
             {
-              "value": "fettuccine",
-              "label": "Fettuccine",
+              "value": "cajun",
+              "label": "Cajun",
               "price_impact": 0.5
             },
             {
-              "value": "gluten_free",
-              "label": "Gluten-Free",
-              "price_impact": 1.5
+              "value": "garlic",
+              "label": "Garlic Parmesan",
+              "price_impact": 0.5
             }
           ],
           "required": true
@@ -1703,19 +1713,19 @@
       ],
       "addons": [
         {
-          "id": "garlic_bread",
-          "name": "Garlic Bread",
-          "price": 3.99
-        },
-        {
-          "id": "extra_cheese",
-          "name": "Extra Cheese",
+          "id": "cheese_sauce",
+          "name": "Cheese Sauce",
           "price": 1.5
         },
         {
-          "id": "meatballs",
-          "name": "Meatballs (3 pcs)",
-          "price": 4.5
+          "id": "ranch",
+          "name": "Ranch Dip",
+          "price": 1.0
+        },
+        {
+          "id": "ketchup",
+          "name": "Extra Ketchup",
+          "price": 0.5
         },
         {
           "id": "coke",
@@ -1741,27 +1751,51 @@
     },
     {
       "id": 25,
-      "name": "Lasagna",
-      "description": "Layered pasta with meat sauce and cheese",
-      "price": 14.99,
-      "imageSrc": "/Images/lasagna.jpg",
-      "category_id": 3,
-      "customizations": [],
-      "addons": [
+      "name": "Hot Dog",
+      "description": "All-beef hot dog in a soft bun",
+      "price": 6.99,
+      "imageSrc": "chow-mein-noodles_ywmukz",
+      "category_id": 5,
+      "customizations": [
         {
-          "id": "garlic_bread",
-          "name": "Garlic Bread",
-          "price": 3.99
-        },
+          "id": "toppings",
+          "name": "Style",
+          "type": "radio",
+          "options": [
+            {
+              "value": "classic",
+              "label": "Classic (ketchup, mustard)",
+              "price_impact": 0
+            },
+            {
+              "value": "chicago",
+              "label": "Chicago Style",
+              "price_impact": 1.0
+            },
+            {
+              "value": "chili",
+              "label": "Chili Cheese",
+              "price_impact": 2.0
+            }
+          ],
+          "required": true
+        }
+      ],
+      "addons": [
         {
           "id": "extra_cheese",
           "name": "Extra Cheese",
           "price": 1.5
         },
         {
-          "id": "meatballs",
-          "name": "Meatballs (3 pcs)",
-          "price": 4.5
+          "id": "bacon",
+          "name": "Bacon",
+          "price": 2.0
+        },
+        {
+          "id": "onions",
+          "name": "Grilled Onions",
+          "price": 1.0
         },
         {
           "id": "coke",
@@ -1787,79 +1821,56 @@
     },
     {
       "id": 26,
-      "name": "Fettuccine Alfredo",
-      "description": "Creamy pasta with parmesan",
-      "price": 12.99,
-      "imageSrc": "/Images/alfredo.jpg",
-      "category_id": 3,
+      "name": "Chicken Wings",
+      "description": "Crispy chicken wings (8 pcs)",
+      "price": 11.99,
+      "imageSrc": "kung-pao-chicken_pex4ip",
+      "category_id": 5,
       "customizations": [
         {
-          "id": "pasta_type",
-          "name": "Pasta Type",
+          "id": "sauce",
+          "name": "Sauce",
           "type": "radio",
           "options": [
             {
-              "value": "spaghetti",
-              "label": "Spaghetti",
+              "value": "buffalo",
+              "label": "Buffalo",
               "price_impact": 0
             },
             {
-              "value": "penne",
-              "label": "Penne",
+              "value": "bbq",
+              "label": "BBQ",
               "price_impact": 0
             },
             {
-              "value": "fettuccine",
-              "label": "Fettuccine",
+              "value": "honey_garlic",
+              "label": "Honey Garlic",
+              "price_impact": 0
+            },
+            {
+              "value": "extra_hot",
+              "label": "Extra Hot",
               "price_impact": 0.5
-            },
-            {
-              "value": "gluten_free",
-              "label": "Gluten-Free",
-              "price_impact": 1.5
             }
           ],
           "required": true
-        },
-        {
-          "id": "protein_add",
-          "name": "Add Protein",
-          "type": "radio",
-          "options": [
-            {
-              "value": "none",
-              "label": "None",
-              "price_impact": 0
-            },
-            {
-              "value": "chicken",
-              "label": "Chicken",
-              "price_impact": 3.0
-            },
-            {
-              "value": "shrimp",
-              "label": "Shrimp",
-              "price_impact": 4.0
-            }
-          ],
-          "required": false
         }
       ],
       "addons": [
         {
-          "id": "garlic_bread",
-          "name": "Garlic Bread",
-          "price": 3.99
-        },
-        {
-          "id": "extra_cheese",
-          "name": "Extra Cheese",
+          "id": "ranch",
+          "name": "Ranch Dip",
           "price": 1.5
         },
         {
-          "id": "meatballs",
-          "name": "Meatballs (3 pcs)",
-          "price": 4.5
+          "id": "blue_cheese",
+          "name": "Blue Cheese Dip",
+          "price": 1.5
+        },
+        {
+          "id": "celery",
+          "name": "Celery Sticks",
+          "price": 1.0
         },
         {
           "id": "coke",
@@ -1885,31 +1896,31 @@
     },
     {
       "id": 27,
-      "name": "Pepperoni Pizza",
-      "description": "Pizza topped with pepperoni",
-      "price": 12.99,
-      "imageSrc": "/Images/pepperoni-pizza.jpg",
-      "category_id": 3,
+      "name": "Mac and Cheese",
+      "description": "Creamy macaroni and cheese",
+      "price": 8.99,
+      "imageSrc": "butter-chicken-curry_nj1vyx",
+      "category_id": 5,
       "customizations": [
         {
-          "id": "size",
-          "name": "Size",
+          "id": "style",
+          "name": "Style",
           "type": "radio",
           "options": [
             {
-              "value": "small",
-              "label": "Small",
-              "price_impact": -2.0
-            },
-            {
-              "value": "medium",
-              "label": "Medium",
+              "value": "classic",
+              "label": "Classic",
               "price_impact": 0
             },
             {
-              "value": "large",
-              "label": "Large",
-              "price_impact": 2.5
+              "value": "bacon",
+              "label": "With Bacon",
+              "price_impact": 2.0
+            },
+            {
+              "value": "truffle",
+              "label": "Truffle",
+              "price_impact": 3.0
             }
           ],
           "required": true
@@ -1917,19 +1928,14 @@
       ],
       "addons": [
         {
-          "id": "garlic_bread",
-          "name": "Garlic Bread",
-          "price": 3.99
+          "id": "breadcrumb",
+          "name": "Breadcrumb Topping",
+          "price": 1.5
         },
         {
           "id": "extra_cheese",
           "name": "Extra Cheese",
-          "price": 1.5
-        },
-        {
-          "id": "meatballs",
-          "name": "Meatballs (3 pcs)",
-          "price": 4.5
+          "price": 2.0
         },
         {
           "id": "coke",
@@ -1955,26 +1961,36 @@
     },
     {
       "id": 28,
-      "name": "Risotto",
-      "description": "Creamy Italian rice dish",
-      "price": 13.99,
-      "imageSrc": "/Images/risotto.jpg",
-      "category_id": 3,
+      "name": "Sushi Roll",
+      "description": "Fresh sushi roll (8 pcs)",
+      "price": 12.99,
+      "imageSrc": "steamed-dumplings_locgfm",
+      "category_id": 6,
       "customizations": [
         {
-          "id": "risotto_type",
-          "name": "Type",
+          "id": "roll_type",
+          "name": "Roll Type",
           "type": "radio",
           "options": [
             {
-              "value": "mushroom",
-              "label": "Mushroom",
+              "value": "california",
+              "label": "California Roll",
               "price_impact": 0
             },
             {
-              "value": "seafood",
-              "label": "Seafood",
+              "value": "spicy_tuna",
+              "label": "Spicy Tuna",
+              "price_impact": 2.0
+            },
+            {
+              "value": "salmon",
+              "label": "Salmon Roll",
               "price_impact": 2.5
+            },
+            {
+              "value": "dragon",
+              "label": "Dragon Roll",
+              "price_impact": 4.0
             }
           ],
           "required": true
@@ -1982,19 +1998,24 @@
       ],
       "addons": [
         {
-          "id": "garlic_bread",
-          "name": "Garlic Bread",
-          "price": 3.99
+          "id": "wasabi",
+          "name": "Extra Wasabi",
+          "price": 0.5
         },
         {
-          "id": "extra_cheese",
-          "name": "Extra Cheese",
-          "price": 1.5
+          "id": "ginger",
+          "name": "Pickled Ginger",
+          "price": 0.5
         },
         {
-          "id": "meatballs",
-          "name": "Meatballs (3 pcs)",
-          "price": 4.5
+          "id": "soy_sauce",
+          "name": "Soy Sauce",
+          "price": 0.5
+        },
+        {
+          "id": "edamame",
+          "name": "Edamame",
+          "price": 3.5
         },
         {
           "id": "coke",
@@ -2020,13 +2041,80 @@
     },
     {
       "id": 29,
-      "name": "Bruschetta",
-      "description": "Toasted bread with tomato and basil",
-      "price": 6.99,
-      "imageSrc": "/Images/bruschetta.jpg",
-      "category_id": 3,
-      "customizations": [],
+      "name": "Ramen",
+      "description": "Traditional Japanese noodle soup",
+      "price": 13.99,
+      "imageSrc": "chow-mein-noodles_ywmukz",
+      "category_id": 6,
+      "customizations": [
+        {
+          "id": "broth",
+          "name": "Broth",
+          "type": "radio",
+          "options": [
+            {
+              "value": "miso",
+              "label": "Miso",
+              "price_impact": 0
+            },
+            {
+              "value": "shoyu",
+              "label": "Shoyu (Soy)",
+              "price_impact": 0
+            },
+            {
+              "value": "tonkotsu",
+              "label": "Tonkotsu (Pork)",
+              "price_impact": 1.0
+            },
+            {
+              "value": "spicy",
+              "label": "Spicy",
+              "price_impact": 0.5
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "protein",
+          "name": "Protein",
+          "type": "radio",
+          "options": [
+            {
+              "value": "pork",
+              "label": "Chashu Pork",
+              "price_impact": 0
+            },
+            {
+              "value": "chicken",
+              "label": "Chicken",
+              "price_impact": 0
+            },
+            {
+              "value": "egg",
+              "label": "Soft Boiled Egg",
+              "price_impact": 1.5
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
+        {
+          "id": "extra_noodles",
+          "name": "Extra Noodles",
+          "price": 2.5
+        },
+        {
+          "id": "extra_egg",
+          "name": "Extra Egg",
+          "price": 1.5
+        },
+        {
+          "id": "seaweed",
+          "name": "Extra Seaweed",
+          "price": 1.0
+        },
         {
           "id": "coke",
           "name": "Coca-Cola",
@@ -2051,31 +2139,31 @@
     },
     {
       "id": 30,
-      "name": "Ravioli",
-      "description": "Stuffed pasta with cheese or meat",
-      "price": 13.49,
-      "imageSrc": "/Images/ravioli.jpg",
-      "category_id": 3,
+      "name": "Tempura",
+      "description": "Lightly battered and fried seafood/vegetables",
+      "price": 11.99,
+      "imageSrc": "samosa-fried-pastry_qovnd8",
+      "category_id": 6,
       "customizations": [
         {
-          "id": "ravioli_filling",
-          "name": "Filling",
+          "id": "selection",
+          "name": "Selection",
           "type": "radio",
           "options": [
             {
-              "value": "cheese",
-              "label": "Cheese",
+              "value": "vegetable",
+              "label": "Vegetable Tempura",
               "price_impact": 0
             },
             {
-              "value": "meat",
-              "label": "Meat",
-              "price_impact": 1.5
+              "value": "shrimp",
+              "label": "Shrimp Tempura",
+              "price_impact": 3.0
             },
             {
-              "value": "spinach",
-              "label": "Spinach & Ricotta",
-              "price_impact": 0.5
+              "value": "mixed",
+              "label": "Mixed Tempura",
+              "price_impact": 2.0
             }
           ],
           "required": true
@@ -2083,19 +2171,14 @@
       ],
       "addons": [
         {
-          "id": "garlic_bread",
-          "name": "Garlic Bread",
-          "price": 3.99
+          "id": "tempura_sauce",
+          "name": "Extra Tempura Sauce",
+          "price": 1.0
         },
         {
-          "id": "extra_cheese",
-          "name": "Extra Cheese",
-          "price": 1.5
-        },
-        {
-          "id": "meatballs",
-          "name": "Meatballs (3 pcs)",
-          "price": 4.5
+          "id": "rice",
+          "name": "Steamed Rice",
+          "price": 2.0
         },
         {
           "id": "coke",
@@ -2121,36 +2204,31 @@
     },
     {
       "id": 31,
-      "name": "Chicken Tacos (3 pcs)",
-      "description": "Soft tacos with seasoned chicken",
-      "price": 9.99,
-      "imageSrc": "/Images/tacos.jpg",
-      "category_id": 4,
+      "name": "Teriyaki Chicken",
+      "description": "Grilled chicken with teriyaki glaze",
+      "price": 12.99,
+      "imageSrc": "steamed-dumplings_locgfm",
+      "category_id": 6,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "side",
+          "name": "Side",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "rice",
+              "label": "Steamed Rice",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
+              "value": "noodles",
+              "label": "Noodles",
+              "price_impact": 1.0
             },
             {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "vegetables",
+              "label": "Vegetables",
+              "price_impact": 1.0
             }
           ],
           "required": true
@@ -2158,24 +2236,14 @@
       ],
       "addons": [
         {
-          "id": "guacamole",
-          "name": "Guacamole",
-          "price": 2.99
-        },
-        {
-          "id": "sour_cream",
-          "name": "Sour Cream",
-          "price": 1.5
-        },
-        {
-          "id": "jalapenos",
-          "name": "Jalapeños",
-          "price": 0.99
-        },
-        {
-          "id": "extra_salsa",
-          "name": "Extra Salsa",
+          "id": "extra_sauce",
+          "name": "Extra Teriyaki Sauce",
           "price": 1.0
+        },
+        {
+          "id": "miso_soup",
+          "name": "Miso Soup",
+          "price": 2.5
         },
         {
           "id": "coke",
@@ -2201,54 +2269,31 @@
     },
     {
       "id": 32,
-      "name": "Beef Burrito",
-      "description": "Flour tortilla with beef, rice, and beans",
-      "price": 11.49,
-      "imageSrc": "/Images/burrito.jpg",
-      "category_id": 4,
+      "name": "Gyoza",
+      "description": "Pan-fried dumplings (6 pcs)",
+      "price": 7.99,
+      "imageSrc": "steamed-dumplings_locgfm",
+      "category_id": 6,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "filling",
+          "name": "Filling",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "pork",
+              "label": "Pork",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
+              "value": "chicken",
+              "label": "Chicken",
               "price_impact": 0
             },
             {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
-            }
-          ],
-          "required": true
-        },
-        {
-          "id": "burrito_size",
-          "name": "Size",
-          "type": "radio",
-          "options": [
-            {
-              "value": "regular",
-              "label": "Regular",
-              "price_impact": 0
-            },
-            {
-              "value": "large",
-              "label": "Large",
-              "price_impact": 2.5
+              "value": "vegetable",
+              "label": "Vegetable",
+              "price_impact": -0.5
             }
           ],
           "required": true
@@ -2256,24 +2301,14 @@
       ],
       "addons": [
         {
-          "id": "guacamole",
-          "name": "Guacamole",
-          "price": 2.99
+          "id": "ponzu",
+          "name": "Ponzu Sauce",
+          "price": 0.75
         },
         {
-          "id": "sour_cream",
-          "name": "Sour Cream",
-          "price": 1.5
-        },
-        {
-          "id": "jalapenos",
-          "name": "Jalapeños",
-          "price": 0.99
-        },
-        {
-          "id": "extra_salsa",
-          "name": "Extra Salsa",
-          "price": 1.0
+          "id": "chili_oil",
+          "name": "Chili Oil",
+          "price": 0.5
         },
         {
           "id": "coke",
@@ -2299,289 +2334,26 @@
     },
     {
       "id": 33,
-      "name": "Quesadilla",
-      "description": "Grilled tortilla with cheese",
-      "price": 8.99,
-      "imageSrc": "/Images/quesadilla.jpg",
-      "category_id": 4,
+      "name": "Pad Thai",
+      "description": "Stir-fried rice noodles with tamarind sauce",
+      "price": 11.99,
+      "imageSrc": "chow-mein-noodles_ywmukz",
+      "category_id": 7,
       "customizations": [
         {
-          "id": "quesadilla_protein",
+          "id": "protein",
           "name": "Protein",
           "type": "radio",
           "options": [
             {
-              "value": "cheese",
-              "label": "Cheese Only",
-              "price_impact": 0
-            },
-            {
-              "value": "chicken",
-              "label": "Chicken",
-              "price_impact": 2.0
-            },
-            {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 2.5
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": [
-        {
-          "id": "guacamole",
-          "name": "Guacamole",
-          "price": 2.99
-        },
-        {
-          "id": "sour_cream",
-          "name": "Sour Cream",
-          "price": 1.5
-        },
-        {
-          "id": "jalapenos",
-          "name": "Jalapeños",
-          "price": 0.99
-        },
-        {
-          "id": "extra_salsa",
-          "name": "Extra Salsa",
-          "price": 1.0
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 34,
-      "name": "Nachos Supreme",
-      "description": "Tortilla chips with cheese, meat, and toppings",
-      "price": 10.99,
-      "imageSrc": "/Images/nachos.jpg",
-      "category_id": 4,
-      "customizations": [
-        {
-          "id": "spice_level",
-          "name": "Spice Level",
-          "type": "radio",
-          "options": [
-            {
-              "value": "mild",
-              "label": "Mild",
-              "price_impact": 0
-            },
-            {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
-            },
-            {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": [
-        {
-          "id": "guacamole",
-          "name": "Guacamole",
-          "price": 2.99
-        },
-        {
-          "id": "sour_cream",
-          "name": "Sour Cream",
-          "price": 1.5
-        },
-        {
-          "id": "jalapenos",
-          "name": "Jalapeños",
-          "price": 0.99
-        },
-        {
-          "id": "extra_salsa",
-          "name": "Extra Salsa",
-          "price": 1.0
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 35,
-      "name": "Enchiladas",
-      "description": "Rolled tortillas with filling and sauce",
-      "price": 12.49,
-      "imageSrc": "/Images/enchiladas.jpg",
-      "category_id": 4,
-      "customizations": [
-        {
-          "id": "spice_level",
-          "name": "Spice Level",
-          "type": "radio",
-          "options": [
-            {
-              "value": "mild",
-              "label": "Mild",
-              "price_impact": 0
-            },
-            {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
-            },
-            {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
-            }
-          ],
-          "required": true
-        },
-        {
-          "id": "enchilada_filling",
-          "name": "Filling",
-          "type": "radio",
-          "options": [
-            {
               "value": "chicken",
               "label": "Chicken",
               "price_impact": 0
-            },
-            {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.0
-            },
-            {
-              "value": "cheese",
-              "label": "Cheese",
-              "price_impact": -0.5
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": [
-        {
-          "id": "guacamole",
-          "name": "Guacamole",
-          "price": 2.99
-        },
-        {
-          "id": "sour_cream",
-          "name": "Sour Cream",
-          "price": 1.5
-        },
-        {
-          "id": "jalapenos",
-          "name": "Jalapeños",
-          "price": 0.99
-        },
-        {
-          "id": "extra_salsa",
-          "name": "Extra Salsa",
-          "price": 1.0
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 36,
-      "name": "Fajitas",
-      "description": "Sizzling meat with peppers and onions",
-      "price": 14.99,
-      "imageSrc": "/Images/fajitas.jpg",
-      "category_id": 4,
-      "customizations": [
-        {
-          "id": "protein_choice",
-          "name": "Protein Choice",
-          "type": "radio",
-          "options": [
-            {
-              "value": "chicken",
-              "label": "Chicken",
-              "price_impact": 0
-            },
-            {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.5
             },
             {
               "value": "shrimp",
               "label": "Shrimp",
-              "price_impact": 2.0
+              "price_impact": 2.5
             },
             {
               "value": "tofu",
@@ -2612,8 +2384,8 @@
               "price_impact": 0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
+              "value": "thai_hot",
+              "label": "Thai Hot",
               "price_impact": 0.5
             }
           ],
@@ -2622,23 +2394,249 @@
       ],
       "addons": [
         {
-          "id": "guacamole",
-          "name": "Guacamole",
-          "price": 2.99
+          "id": "peanuts",
+          "name": "Extra Peanuts",
+          "price": 1.0
         },
         {
-          "id": "sour_cream",
-          "name": "Sour Cream",
+          "id": "lime",
+          "name": "Extra Lime",
+          "price": 0.5
+        },
+        {
+          "id": "coke",
+          "name": "Coca-Cola",
+          "price": 2.5
+        },
+        {
+          "id": "sprite",
+          "name": "Sprite",
+          "price": 2.5
+        },
+        {
+          "id": "water",
+          "name": "Bottled Water",
           "price": 1.5
         },
         {
-          "id": "jalapenos",
-          "name": "Jalapeños",
-          "price": 0.99
+          "id": "iced_tea",
+          "name": "Iced Tea",
+          "price": 2.99
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "name": "Green Curry",
+      "description": "Spicy coconut curry with vegetables",
+      "price": 12.99,
+      "imageSrc": "butter-chicken-curry_nj1vyx",
+      "category_id": 7,
+      "customizations": [
+        {
+          "id": "protein",
+          "name": "Protein",
+          "type": "radio",
+          "options": [
+            {
+              "value": "chicken",
+              "label": "Chicken",
+              "price_impact": 0
+            },
+            {
+              "value": "beef",
+              "label": "Beef",
+              "price_impact": 1.5
+            },
+            {
+              "value": "shrimp",
+              "label": "Shrimp",
+              "price_impact": 2.5
+            },
+            {
+              "value": "vegetables",
+              "label": "Vegetables Only",
+              "price_impact": -1.0
+            }
+          ],
+          "required": true
         },
         {
-          "id": "extra_salsa",
-          "name": "Extra Salsa",
+          "id": "spice_level",
+          "name": "Spice Level",
+          "type": "radio",
+          "options": [
+            {
+              "value": "mild",
+              "label": "Mild",
+              "price_impact": 0
+            },
+            {
+              "value": "medium",
+              "label": "Medium",
+              "price_impact": 0
+            },
+            {
+              "value": "hot",
+              "label": "Hot",
+              "price_impact": 0
+            }
+          ],
+          "required": true
+        }
+      ],
+      "addons": [
+        {
+          "id": "jasmine_rice",
+          "name": "Jasmine Rice",
+          "price": 2.0
+        },
+        {
+          "id": "roti",
+          "name": "Roti Bread",
+          "price": 2.5
+        },
+        {
+          "id": "coke",
+          "name": "Coca-Cola",
+          "price": 2.5
+        },
+        {
+          "id": "sprite",
+          "name": "Sprite",
+          "price": 2.5
+        },
+        {
+          "id": "water",
+          "name": "Bottled Water",
+          "price": 1.5
+        },
+        {
+          "id": "iced_tea",
+          "name": "Iced Tea",
+          "price": 2.99
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "name": "Tom Yum Soup",
+      "description": "Spicy and sour Thai soup",
+      "price": 8.99,
+      "imageSrc": "mapo-tofu_obsi69",
+      "category_id": 7,
+      "customizations": [
+        {
+          "id": "protein",
+          "name": "Protein",
+          "type": "radio",
+          "options": [
+            {
+              "value": "shrimp",
+              "label": "Shrimp",
+              "price_impact": 0
+            },
+            {
+              "value": "chicken",
+              "label": "Chicken",
+              "price_impact": -1.0
+            },
+            {
+              "value": "mixed_seafood",
+              "label": "Mixed Seafood",
+              "price_impact": 2.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "spice_level",
+          "name": "Spice Level",
+          "type": "radio",
+          "options": [
+            {
+              "value": "mild",
+              "label": "Mild",
+              "price_impact": 0
+            },
+            {
+              "value": "medium",
+              "label": "Medium",
+              "price_impact": 0
+            },
+            {
+              "value": "hot",
+              "label": "Hot",
+              "price_impact": 0
+            }
+          ],
+          "required": true
+        }
+      ],
+      "addons": [
+        {
+          "id": "jasmine_rice",
+          "name": "Jasmine Rice",
+          "price": 2.0
+        },
+        {
+          "id": "coke",
+          "name": "Coca-Cola",
+          "price": 2.5
+        },
+        {
+          "id": "sprite",
+          "name": "Sprite",
+          "price": 2.5
+        },
+        {
+          "id": "water",
+          "name": "Bottled Water",
+          "price": 1.5
+        },
+        {
+          "id": "iced_tea",
+          "name": "Iced Tea",
+          "price": 2.99
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "name": "Spring Rolls",
+      "description": "Fresh vegetable spring rolls (4 pcs)",
+      "price": 6.99,
+      "imageSrc": "steamed-dumplings_locgfm",
+      "category_id": 7,
+      "customizations": [
+        {
+          "id": "type",
+          "name": "Type",
+          "type": "radio",
+          "options": [
+            {
+              "value": "fresh",
+              "label": "Fresh (Cold)",
+              "price_impact": 0
+            },
+            {
+              "value": "fried",
+              "label": "Fried (Crispy)",
+              "price_impact": 0.5
+            }
+          ],
+          "required": true
+        }
+      ],
+      "addons": [
+        {
+          "id": "peanut_sauce",
+          "name": "Peanut Sauce",
+          "price": 1.0
+        },
+        {
+          "id": "sweet_chili",
+          "name": "Sweet Chili Sauce",
           "price": 1.0
         },
         {
@@ -2665,13 +2663,37 @@
     },
     {
       "id": 37,
-      "name": "Churros (6 pcs)",
-      "description": "Fried dough with cinnamon sugar",
-      "price": 5.99,
-      "imageSrc": "/Images/churros.jpg",
-      "category_id": 4,
-      "customizations": [],
+      "name": "Mango Sticky Rice",
+      "description": "Sweet sticky rice with fresh mango",
+      "price": 7.99,
+      "imageSrc": "chow-mein-noodles_ywmukz",
+      "category_id": 7,
+      "customizations": [
+        {
+          "id": "coconut",
+          "name": "Coconut Sauce",
+          "type": "radio",
+          "options": [
+            {
+              "value": "regular",
+              "label": "Regular",
+              "price_impact": 0
+            },
+            {
+              "value": "extra",
+              "label": "Extra Coconut Sauce",
+              "price_impact": 1.0
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
+        {
+          "id": "sesame",
+          "name": "Toasted Sesame",
+          "price": 0.75
+        },
         {
           "id": "coke",
           "name": "Coca-Cola",
@@ -2696,31 +2718,31 @@
     },
     {
       "id": 38,
-      "name": "Taco Salad",
-      "description": "Fresh salad in crispy tortilla bowl",
-      "price": 10.49,
-      "imageSrc": "/Images/taco-salad.jpg",
-      "category_id": 4,
+      "name": "Greek Salad",
+      "description": "Fresh salad with feta, olives, and vegetables",
+      "price": 8.99,
+      "imageSrc": "paneer-tikka-grilled_c7y8wl",
+      "category_id": 8,
       "customizations": [
         {
-          "id": "salad_protein",
-          "name": "Protein",
+          "id": "size",
+          "name": "Size",
           "type": "radio",
           "options": [
             {
-              "value": "chicken",
-              "label": "Chicken",
+              "value": "small",
+              "label": "Small",
+              "price_impact": -2.0
+            },
+            {
+              "value": "regular",
+              "label": "Regular",
               "price_impact": 0
             },
             {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.0
-            },
-            {
-              "value": "vegetarian",
-              "label": "Vegetarian",
-              "price_impact": -1.0
+              "value": "large",
+              "label": "Large",
+              "price_impact": 3.0
             }
           ],
           "required": true
@@ -2728,24 +2750,19 @@
       ],
       "addons": [
         {
-          "id": "guacamole",
-          "name": "Guacamole",
-          "price": 2.99
+          "id": "extra_feta",
+          "name": "Extra Feta",
+          "price": 2.0
         },
         {
-          "id": "sour_cream",
-          "name": "Sour Cream",
+          "id": "pita_bread",
+          "name": "Pita Bread",
+          "price": 2.5
+        },
+        {
+          "id": "olives",
+          "name": "Extra Olives",
           "price": 1.5
-        },
-        {
-          "id": "jalapenos",
-          "name": "Jalapeños",
-          "price": 0.99
-        },
-        {
-          "id": "extra_salsa",
-          "name": "Extra Salsa",
-          "price": 1.0
         },
         {
           "id": "coke",
@@ -2771,54 +2788,26 @@
     },
     {
       "id": 39,
-      "name": "Classic Burger",
-      "description": "Beef patty with lettuce, tomato, and cheese",
-      "price": 10.99,
-      "imageSrc": "/Images/burger.jpg",
-      "category_id": 5,
+      "name": "Falafel",
+      "description": "Crispy chickpea fritters (6 pcs)",
+      "price": 7.99,
+      "imageSrc": "samosa-fried-pastry_qovnd8",
+      "category_id": 8,
       "customizations": [
         {
-          "id": "cooking_preference",
-          "name": "Cooking Preference",
+          "id": "serving",
+          "name": "Serving Style",
           "type": "radio",
           "options": [
             {
-              "value": "rare",
-              "label": "Rare",
+              "value": "plate",
+              "label": "On Plate",
               "price_impact": 0
             },
             {
-              "value": "medium_rare",
-              "label": "Medium Rare",
-              "price_impact": 0
-            },
-            {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
-            },
-            {
-              "value": "well_done",
-              "label": "Well Done",
-              "price_impact": 0
-            }
-          ],
-          "required": true
-        },
-        {
-          "id": "burger_size",
-          "name": "Patty Size",
-          "type": "radio",
-          "options": [
-            {
-              "value": "single",
-              "label": "Single",
-              "price_impact": 0
-            },
-            {
-              "value": "double",
-              "label": "Double",
-              "price_impact": 3.0
+              "value": "wrap",
+              "label": "In Pita Wrap",
+              "price_impact": 1.0
             }
           ],
           "required": true
@@ -2826,18 +2815,18 @@
       ],
       "addons": [
         {
-          "id": "fries",
-          "name": "French Fries",
-          "price": 3.99
+          "id": "tahini",
+          "name": "Tahini Sauce",
+          "price": 1.0
         },
         {
-          "id": "onion_rings",
-          "name": "Onion Rings",
-          "price": 4.49
+          "id": "hummus",
+          "name": "Hummus",
+          "price": 2.5
         },
         {
-          "id": "bacon",
-          "name": "Bacon",
+          "id": "pita_bread",
+          "name": "Extra Pita",
           "price": 2.0
         },
         {
@@ -2864,21 +2853,50 @@
     },
     {
       "id": 40,
-      "name": "BBQ Ribs",
-      "description": "Tender pork ribs with BBQ sauce",
-      "price": 16.99,
-      "imageSrc": "/Images/bbq-ribs.jpg",
-      "category_id": 5,
-      "customizations": [],
+      "name": "Hummus Platter",
+      "description": "Creamy chickpea dip with pita bread",
+      "price": 7.99,
+      "imageSrc": "paneer-tikka-grilled_c7y8wl",
+      "category_id": 8,
+      "customizations": [
+        {
+          "id": "topping",
+          "name": "Topping",
+          "type": "radio",
+          "options": [
+            {
+              "value": "plain",
+              "label": "Plain",
+              "price_impact": 0
+            },
+            {
+              "value": "olive_oil",
+              "label": "Olive Oil & Paprika",
+              "price_impact": 0
+            },
+            {
+              "value": "pine_nuts",
+              "label": "Pine Nuts",
+              "price_impact": 2.0
+            },
+            {
+              "value": "lamb",
+              "label": "Ground Lamb",
+              "price_impact": 3.5
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
         {
-          "id": "coleslaw",
-          "name": "Coleslaw",
-          "price": 2.99
+          "id": "pita_bread",
+          "name": "Extra Pita",
+          "price": 2.0
         },
         {
-          "id": "corn",
-          "name": "Corn on the Cob",
+          "id": "vegetables",
+          "name": "Veggie Sticks",
           "price": 2.5
         },
         {
@@ -2905,36 +2923,36 @@
     },
     {
       "id": 41,
-      "name": "Buffalo Wings (10 pcs)",
-      "description": "Spicy chicken wings",
-      "price": 11.99,
-      "imageSrc": "/Images/buffalo-wings.jpg",
-      "category_id": 5,
+      "name": "Shawarma",
+      "description": "Marinated meat in pita with vegetables",
+      "price": 10.99,
+      "imageSrc": "biryani-rice-dish_unei85",
+      "category_id": 8,
       "customizations": [
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "meat",
+          "name": "Meat",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "chicken",
+              "label": "Chicken",
               "price_impact": 0
             },
             {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
+              "value": "beef",
+              "label": "Beef",
+              "price_impact": 1.5
             },
             {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
+              "value": "lamb",
+              "label": "Lamb",
+              "price_impact": 2.0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "mixed",
+              "label": "Mixed",
+              "price_impact": 2.5
             }
           ],
           "required": true
@@ -2942,14 +2960,19 @@
       ],
       "addons": [
         {
-          "id": "ranch",
-          "name": "Ranch Dressing",
+          "id": "tahini",
+          "name": "Extra Tahini",
           "price": 1.0
         },
         {
-          "id": "blue_cheese",
-          "name": "Blue Cheese Dressing",
+          "id": "garlic_sauce",
+          "name": "Garlic Sauce",
           "price": 1.0
+        },
+        {
+          "id": "fries",
+          "name": "French Fries",
+          "price": 3.5
         },
         {
           "id": "coke",
@@ -2975,31 +2998,31 @@
     },
     {
       "id": 42,
-      "name": "Philly Cheesesteak",
-      "description": "Sliced beef with cheese on hoagie roll",
-      "price": 12.49,
-      "imageSrc": "/Images/cheesesteak.jpg",
-      "category_id": 5,
+      "name": "Moussaka",
+      "description": "Layered eggplant and meat casserole",
+      "price": 13.99,
+      "imageSrc": "paneer-tikka-grilled_c7y8wl",
+      "category_id": 8,
       "customizations": [
         {
-          "id": "cheese_type",
-          "name": "Cheese Type",
+          "id": "meat_option",
+          "name": "Meat Option",
           "type": "radio",
           "options": [
             {
-              "value": "provolone",
-              "label": "Provolone",
+              "value": "lamb",
+              "label": "With Lamb",
               "price_impact": 0
             },
             {
-              "value": "american",
-              "label": "American",
-              "price_impact": 0
+              "value": "beef",
+              "label": "With Beef",
+              "price_impact": -0.5
             },
             {
-              "value": "cheese_whiz",
-              "label": "Cheese Whiz",
-              "price_impact": 0.5
+              "value": "vegetarian",
+              "label": "Vegetarian",
+              "price_impact": -2.0
             }
           ],
           "required": true
@@ -3007,9 +3030,14 @@
       ],
       "addons": [
         {
-          "id": "fries",
-          "name": "French Fries",
-          "price": 3.99
+          "id": "greek_salad",
+          "name": "Side Greek Salad",
+          "price": 4.5
+        },
+        {
+          "id": "pita_bread",
+          "name": "Pita Bread",
+          "price": 2.0
         },
         {
           "id": "coke",
@@ -3035,16 +3063,40 @@
     },
     {
       "id": 43,
-      "name": "Mac and Cheese",
-      "description": "Creamy macaroni and cheese",
-      "price": 8.99,
-      "imageSrc": "/Images/mac-cheese.jpg",
-      "category_id": 5,
-      "customizations": [],
+      "name": "Chocolate Cake",
+      "description": "Rich and moist chocolate layer cake",
+      "price": 6.99,
+      "imageSrc": "decadent-chocolate-cake_t0l30w",
+      "category_id": 9,
+      "customizations": [
+        {
+          "id": "serving",
+          "name": "Serving",
+          "type": "radio",
+          "options": [
+            {
+              "value": "slice",
+              "label": "Single Slice",
+              "price_impact": 0
+            },
+            {
+              "value": "double",
+              "label": "Double Slice",
+              "price_impact": 5.0
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
         {
-          "id": "bacon_bits",
-          "name": "Bacon Bits",
+          "id": "ice_cream",
+          "name": "Vanilla Ice Cream",
+          "price": 2.5
+        },
+        {
+          "id": "whipped_cream",
+          "name": "Whipped Cream",
           "price": 1.5
         },
         {
@@ -3071,22 +3123,51 @@
     },
     {
       "id": 44,
-      "name": "Club Sandwich",
-      "description": "Triple-decker with turkey, bacon, and vegetables",
-      "price": 9.99,
-      "imageSrc": "/Images/club-sandwich.jpg",
-      "category_id": 5,
-      "customizations": [],
+      "name": "Cheesecake",
+      "description": "Creamy New York style cheesecake",
+      "price": 7.99,
+      "imageSrc": "classic-cheesecake_zwchw1",
+      "category_id": 9,
+      "customizations": [
+        {
+          "id": "flavor",
+          "name": "Flavor",
+          "type": "radio",
+          "options": [
+            {
+              "value": "plain",
+              "label": "Plain",
+              "price_impact": 0
+            },
+            {
+              "value": "strawberry",
+              "label": "Strawberry",
+              "price_impact": 1.0
+            },
+            {
+              "value": "blueberry",
+              "label": "Blueberry",
+              "price_impact": 1.0
+            },
+            {
+              "value": "chocolate",
+              "label": "Chocolate",
+              "price_impact": 1.5
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
         {
-          "id": "fries",
-          "name": "French Fries",
-          "price": 3.99
+          "id": "berry_sauce",
+          "name": "Berry Sauce",
+          "price": 1.5
         },
         {
-          "id": "chips",
-          "name": "Potato Chips",
-          "price": 2.5
+          "id": "whipped_cream",
+          "name": "Whipped Cream",
+          "price": 1.5
         },
         {
           "id": "coke",
@@ -3112,27 +3193,17 @@
     },
     {
       "id": 45,
-      "name": "California Roll",
-      "description": "Sushi roll with crab, avocado, and cucumber",
-      "price": 8.99,
-      "imageSrc": "/Images/california-roll.jpg",
-      "category_id": 6,
+      "name": "Tiramisu",
+      "description": "Classic Italian coffee-flavored dessert",
+      "price": 7.99,
+      "imageSrc": "classic-tiramisu_z9qovr",
+      "category_id": 9,
       "customizations": [],
       "addons": [
         {
-          "id": "soy_sauce",
-          "name": "Extra Soy Sauce",
-          "price": 0.5
-        },
-        {
-          "id": "wasabi",
-          "name": "Extra Wasabi",
-          "price": 0.5
-        },
-        {
-          "id": "ginger",
-          "name": "Pickled Ginger",
-          "price": 0.5
+          "id": "espresso",
+          "name": "Espresso Shot",
+          "price": 2.5
         },
         {
           "id": "coke",
@@ -3158,46 +3229,84 @@
     },
     {
       "id": 46,
-      "name": "Chicken Teriyaki",
-      "description": "Grilled chicken with teriyaki sauce",
-      "price": 12.99,
-      "imageSrc": "/Images/chicken-teriyaki.jpg",
-      "category_id": 6,
+      "name": "Ice Cream Sundae",
+      "description": "Ice cream with toppings and sauce",
+      "price": 5.99,
+      "imageSrc": "ice-cream-sundae_jjb28s",
+      "category_id": 9,
       "customizations": [
         {
-          "id": "rice_choice",
-          "name": "Rice Choice",
+          "id": "flavor",
+          "name": "Ice Cream Flavor",
           "type": "radio",
           "options": [
             {
-              "value": "white",
-              "label": "White Rice",
+              "value": "vanilla",
+              "label": "Vanilla",
               "price_impact": 0
             },
             {
-              "value": "brown",
-              "label": "Brown Rice",
-              "price_impact": 0.5
+              "value": "chocolate",
+              "label": "Chocolate",
+              "price_impact": 0
             },
             {
-              "value": "fried",
-              "label": "Fried Rice",
-              "price_impact": 1.0
+              "value": "strawberry",
+              "label": "Strawberry",
+              "price_impact": 0
+            },
+            {
+              "value": "mixed",
+              "label": "Mixed (3 scoops)",
+              "price_impact": 2.0
             }
           ],
-          "required": false
+          "required": true
+        },
+        {
+          "id": "sauce",
+          "name": "Sauce",
+          "type": "radio",
+          "options": [
+            {
+              "value": "chocolate",
+              "label": "Chocolate Sauce",
+              "price_impact": 0
+            },
+            {
+              "value": "caramel",
+              "label": "Caramel Sauce",
+              "price_impact": 0
+            },
+            {
+              "value": "strawberry",
+              "label": "Strawberry Sauce",
+              "price_impact": 0
+            }
+          ],
+          "required": true
         }
       ],
       "addons": [
         {
-          "id": "miso_soup",
-          "name": "Miso Soup",
-          "price": 2.99
+          "id": "sprinkles",
+          "name": "Sprinkles",
+          "price": 0.75
         },
         {
-          "id": "salad",
-          "name": "Green Salad",
-          "price": 3.5
+          "id": "nuts",
+          "name": "Chopped Nuts",
+          "price": 1.5
+        },
+        {
+          "id": "cherry",
+          "name": "Cherry on Top",
+          "price": 0.5
+        },
+        {
+          "id": "brownie",
+          "name": "Brownie Pieces",
+          "price": 2.0
         },
         {
           "id": "coke",
@@ -3223,59 +3332,26 @@
     },
     {
       "id": 47,
-      "name": "Ramen Bowl",
-      "description": "Japanese noodle soup",
-      "price": 11.99,
-      "imageSrc": "/Images/ramen.jpg",
-      "category_id": 6,
+      "name": "Chocolate Brownie",
+      "description": "Warm fudgy chocolate brownie",
+      "price": 5.99,
+      "imageSrc": "chocolate-brownie_sn9i3x",
+      "category_id": 9,
       "customizations": [
         {
-          "id": "ramen_broth",
-          "name": "Broth Type",
+          "id": "serving",
+          "name": "Serving Style",
           "type": "radio",
           "options": [
             {
-              "value": "miso",
-              "label": "Miso",
+              "value": "plain",
+              "label": "Plain",
               "price_impact": 0
             },
             {
-              "value": "tonkotsu",
-              "label": "Tonkotsu",
-              "price_impact": 1.0
-            },
-            {
-              "value": "shoyu",
-              "label": "Shoyu",
-              "price_impact": 0
-            }
-          ],
-          "required": true
-        },
-        {
-          "id": "spice_level",
-          "name": "Spice Level",
-          "type": "radio",
-          "options": [
-            {
-              "value": "mild",
-              "label": "Mild",
-              "price_impact": 0
-            },
-            {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
-            },
-            {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
+              "value": "ala_mode",
+              "label": "À la Mode (with ice cream)",
+              "price_impact": 2.5
             }
           ],
           "required": true
@@ -3283,14 +3359,14 @@
       ],
       "addons": [
         {
-          "id": "extra_egg",
-          "name": "Soft Boiled Egg",
-          "price": 1.5
+          "id": "chocolate_sauce",
+          "name": "Chocolate Sauce",
+          "price": 1.0
         },
         {
-          "id": "extra_noodles",
-          "name": "Extra Noodles",
-          "price": 2.0
+          "id": "whipped_cream",
+          "name": "Whipped Cream",
+          "price": 1.5
         },
         {
           "id": "coke",
@@ -3316,22 +3392,46 @@
     },
     {
       "id": 48,
-      "name": "Sashimi Platter",
-      "description": "Assorted fresh raw fish",
-      "price": 18.99,
-      "imageSrc": "/Images/sashimi.jpg",
-      "category_id": 6,
-      "customizations": [],
+      "name": "Chocolate Mousse",
+      "description": "Light and airy chocolate mousse",
+      "price": 6.99,
+      "imageSrc": "chocolate-mousse_ygkfqh",
+      "category_id": 9,
+      "customizations": [
+        {
+          "id": "type",
+          "name": "Type",
+          "type": "radio",
+          "options": [
+            {
+              "value": "dark",
+              "label": "Dark Chocolate",
+              "price_impact": 0
+            },
+            {
+              "value": "milk",
+              "label": "Milk Chocolate",
+              "price_impact": 0
+            },
+            {
+              "value": "white",
+              "label": "White Chocolate",
+              "price_impact": 0.5
+            }
+          ],
+          "required": true
+        }
+      ],
       "addons": [
         {
-          "id": "soy_sauce",
-          "name": "Extra Soy Sauce",
-          "price": 0.5
+          "id": "berries",
+          "name": "Fresh Berries",
+          "price": 2.5
         },
         {
-          "id": "wasabi",
-          "name": "Extra Wasabi",
-          "price": 0.5
+          "id": "whipped_cream",
+          "name": "Whipped Cream",
+          "price": 1.5
         },
         {
           "id": "coke",
@@ -3357,131 +3457,168 @@
     },
     {
       "id": 49,
-      "name": "Tempura",
-      "description": "Battered and fried vegetables and shrimp",
-      "price": 10.99,
-      "imageSrc": "/Images/tempura.jpg",
-      "category_id": 6,
-      "customizations": [],
-      "addons": [
-        {
-          "id": "miso_soup",
-          "name": "Miso Soup",
-          "price": 2.99
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 50,
-      "name": "Gyoza (6 pcs)",
-      "description": "Pan-fried Japanese dumplings",
-      "price": 6.99,
-      "imageSrc": "/Images/gyoza.jpg",
-      "category_id": 6,
-      "customizations": [],
-      "addons": [
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 51,
-      "name": "Pad Thai",
-      "description": "Stir-fried rice noodles",
-      "price": 11.49,
-      "imageSrc": "/Images/pad-thai.jpg",
-      "category_id": 7,
+      "name": "Coca-Cola",
+      "description": "Classic Coca-Cola",
+      "price": 2.99,
+      "imageSrc": "glass-of-orange-juice_h4imsx",
+      "category_id": 10,
       "customizations": [
         {
-          "id": "protein_choice",
-          "name": "Protein Choice",
+          "id": "size",
+          "name": "Size",
           "type": "radio",
           "options": [
             {
-              "value": "chicken",
-              "label": "Chicken",
+              "value": "small",
+              "label": "Small (12 oz)",
+              "price_impact": -0.5
+            },
+            {
+              "value": "medium",
+              "label": "Medium (16 oz)",
               "price_impact": 0
             },
             {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.5
-            },
-            {
-              "value": "shrimp",
-              "label": "Shrimp",
-              "price_impact": 2.0
-            },
-            {
-              "value": "tofu",
-              "label": "Tofu",
-              "price_impact": -0.5
+              "value": "large",
+              "label": "Large (20 oz)",
+              "price_impact": 1.0
             }
           ],
           "required": true
         },
         {
-          "id": "spice_level",
-          "name": "Spice Level",
+          "id": "ice",
+          "name": "Ice",
           "type": "radio",
           "options": [
             {
-              "value": "mild",
-              "label": "Mild",
+              "value": "regular",
+              "label": "Regular Ice",
               "price_impact": 0
+            },
+            {
+              "value": "no_ice",
+              "label": "No Ice",
+              "price_impact": 0
+            },
+            {
+              "value": "extra_ice",
+              "label": "Extra Ice",
+              "price_impact": 0
+            }
+          ],
+          "required": true
+        }
+      ],
+      "addons": []
+    },
+    {
+      "id": 50,
+      "name": "Orange Juice",
+      "description": "Freshly squeezed orange juice",
+      "price": 4.99,
+      "imageSrc": "glass-of-orange-juice_h4imsx",
+      "category_id": 10,
+      "customizations": [
+        {
+          "id": "size",
+          "name": "Size",
+          "type": "radio",
+          "options": [
+            {
+              "value": "small",
+              "label": "Small (8 oz)",
+              "price_impact": -1.0
             },
             {
               "value": "medium",
-              "label": "Medium",
+              "label": "Medium (12 oz)",
               "price_impact": 0
             },
             {
-              "value": "hot",
-              "label": "Hot",
+              "value": "large",
+              "label": "Large (16 oz)",
+              "price_impact": 2.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "pulp",
+          "name": "Pulp",
+          "type": "radio",
+          "options": [
+            {
+              "value": "no_pulp",
+              "label": "No Pulp",
               "price_impact": 0
             },
             {
-              "value": "extra_hot",
-              "label": "Extra Hot",
+              "value": "some_pulp",
+              "label": "Some Pulp",
+              "price_impact": 0
+            },
+            {
+              "value": "extra_pulp",
+              "label": "Extra Pulp",
+              "price_impact": 0
+            }
+          ],
+          "required": true
+        }
+      ],
+      "addons": []
+    },
+    {
+      "id": 51,
+      "name": "Mango Smoothie",
+      "description": "Creamy mango smoothie",
+      "price": 5.99,
+      "imageSrc": "mango-smoothie_afriwy",
+      "category_id": 10,
+      "customizations": [
+        {
+          "id": "size",
+          "name": "Size",
+          "type": "radio",
+          "options": [
+            {
+              "value": "small",
+              "label": "Small (12 oz)",
+              "price_impact": -1.0
+            },
+            {
+              "value": "medium",
+              "label": "Medium (16 oz)",
+              "price_impact": 0
+            },
+            {
+              "value": "large",
+              "label": "Large (20 oz)",
+              "price_impact": 2.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "base",
+          "name": "Base",
+          "type": "radio",
+          "options": [
+            {
+              "value": "milk",
+              "label": "Milk",
+              "price_impact": 0
+            },
+            {
+              "value": "yogurt",
+              "label": "Yogurt",
               "price_impact": 0.5
+            },
+            {
+              "value": "almond_milk",
+              "label": "Almond Milk",
+              "price_impact": 1.0
             }
           ],
           "required": true
@@ -3489,669 +3626,77 @@
       ],
       "addons": [
         {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
+          "id": "protein",
+          "name": "Protein Powder",
+          "price": 2.0
         },
         {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
+          "id": "chia",
+          "name": "Chia Seeds",
           "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
         }
       ]
     },
     {
       "id": 52,
-      "name": "Green Curry",
-      "description": "Thai curry with coconut milk",
-      "price": 12.99,
-      "imageSrc": "/Images/green-curry.jpg",
-      "category_id": 7,
-      "customizations": [
-        {
-          "id": "protein_choice",
-          "name": "Protein Choice",
-          "type": "radio",
-          "options": [
-            {
-              "value": "chicken",
-              "label": "Chicken",
-              "price_impact": 0
-            },
-            {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.5
-            },
-            {
-              "value": "shrimp",
-              "label": "Shrimp",
-              "price_impact": 2.0
-            },
-            {
-              "value": "tofu",
-              "label": "Tofu",
-              "price_impact": -0.5
-            }
-          ],
-          "required": true
-        },
-        {
-          "id": "spice_level",
-          "name": "Spice Level",
-          "type": "radio",
-          "options": [
-            {
-              "value": "mild",
-              "label": "Mild",
-              "price_impact": 0
-            },
-            {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
-            },
-            {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": [
-        {
-          "id": "jasmine_rice",
-          "name": "Jasmine Rice",
-          "price": 2.5
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 53,
-      "name": "Tom Yum Soup",
-      "description": "Spicy and sour Thai soup",
-      "price": 8.99,
-      "imageSrc": "/Images/tom-yum.jpg",
-      "category_id": 7,
-      "customizations": [
-        {
-          "id": "spice_level",
-          "name": "Spice Level",
-          "type": "radio",
-          "options": [
-            {
-              "value": "mild",
-              "label": "Mild",
-              "price_impact": 0
-            },
-            {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0
-            },
-            {
-              "value": "hot",
-              "label": "Hot",
-              "price_impact": 0
-            },
-            {
-              "value": "extra_hot",
-              "label": "Extra Hot",
-              "price_impact": 0.5
-            }
-          ],
-          "required": true
-        },
-        {
-          "id": "soup_protein",
-          "name": "Protein",
-          "type": "radio",
-          "options": [
-            {
-              "value": "shrimp",
-              "label": "Shrimp",
-              "price_impact": 0
-            },
-            {
-              "value": "chicken",
-              "label": "Chicken",
-              "price_impact": -1.0
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": [
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 54,
-      "name": "Massaman Curry",
-      "description": "Mild curry with peanuts",
-      "price": 13.49,
-      "imageSrc": "/Images/massaman-curry.jpg",
-      "category_id": 7,
-      "customizations": [
-        {
-          "id": "protein_choice",
-          "name": "Protein Choice",
-          "type": "radio",
-          "options": [
-            {
-              "value": "chicken",
-              "label": "Chicken",
-              "price_impact": 0
-            },
-            {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.5
-            },
-            {
-              "value": "shrimp",
-              "label": "Shrimp",
-              "price_impact": 2.0
-            },
-            {
-              "value": "tofu",
-              "label": "Tofu",
-              "price_impact": -0.5
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": [
-        {
-          "id": "jasmine_rice",
-          "name": "Jasmine Rice",
-          "price": 2.5
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 55,
-      "name": "Spring Rolls (4 pcs)",
-      "description": "Fresh Thai spring rolls",
-      "price": 6.99,
-      "imageSrc": "/Images/thai-spring-rolls.jpg",
-      "category_id": 7,
-      "customizations": [],
-      "addons": [
-        {
-          "id": "peanut_sauce",
-          "name": "Peanut Sauce",
-          "price": 1.0
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 56,
-      "name": "Falafel Wrap",
-      "description": "Fried chickpea balls in pita",
-      "price": 9.49,
-      "imageSrc": "/Images/falafel.jpg",
-      "category_id": 8,
-      "customizations": [],
-      "addons": [
-        {
-          "id": "hummus",
-          "name": "Hummus",
-          "price": 2.5
-        },
-        {
-          "id": "tahini",
-          "name": "Tahini Sauce",
-          "price": 1.0
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 57,
-      "name": "Shawarma",
-      "description": "Marinated meat in pita bread",
-      "price": 11.99,
-      "imageSrc": "/Images/shawarma.jpg",
-      "category_id": 8,
-      "customizations": [
-        {
-          "id": "shawarma_meat",
-          "name": "Meat Type",
-          "type": "radio",
-          "options": [
-            {
-              "value": "chicken",
-              "label": "Chicken",
-              "price_impact": 0
-            },
-            {
-              "value": "beef",
-              "label": "Beef",
-              "price_impact": 1.5
-            },
-            {
-              "value": "lamb",
-              "label": "Lamb",
-              "price_impact": 2.0
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": [
-        {
-          "id": "hummus",
-          "name": "Hummus",
-          "price": 2.5
-        },
-        {
-          "id": "tabbouleh",
-          "name": "Tabbouleh",
-          "price": 3.0
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 58,
-      "name": "Greek Salad",
-      "description": "Fresh salad with feta and olives",
-      "price": 8.99,
-      "imageSrc": "/Images/greek-salad.jpg",
-      "category_id": 8,
-      "customizations": [],
-      "addons": [
-        {
-          "id": "pita_bread",
-          "name": "Pita Bread",
-          "price": 1.5
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 59,
-      "name": "Lamb Kebab",
-      "description": "Grilled lamb skewers",
-      "price": 15.99,
-      "imageSrc": "/Images/lamb-kebab.jpg",
-      "category_id": 8,
-      "customizations": [],
-      "addons": [
-        {
-          "id": "rice_pilaf",
-          "name": "Rice Pilaf",
-          "price": 3.5
-        },
-        {
-          "id": "grilled_veggies",
-          "name": "Grilled Vegetables",
-          "price": 4.0
-        },
-        {
-          "id": "coke",
-          "name": "Coca-Cola",
-          "price": 2.5
-        },
-        {
-          "id": "sprite",
-          "name": "Sprite",
-          "price": 2.5
-        },
-        {
-          "id": "water",
-          "name": "Bottled Water",
-          "price": 1.5
-        },
-        {
-          "id": "iced_tea",
-          "name": "Iced Tea",
-          "price": 2.99
-        }
-      ]
-    },
-    {
-      "id": 60,
-      "name": "Chocolate Lava Cake",
-      "description": "Warm chocolate cake with molten center",
-      "price": 6.99,
-      "imageSrc": "/Images/lava-cake.jpg",
-      "category_id": 9,
-      "customizations": [],
-      "addons": [
-        {
-          "id": "ice_cream",
-          "name": "Vanilla Ice Cream",
-          "price": 2.0
-        }
-      ]
-    },
-    {
-      "id": 61,
-      "name": "Tiramisu",
-      "description": "Italian coffee-flavored dessert",
-      "price": 6.49,
-      "imageSrc": "/Images/tiramisu.jpg",
-      "category_id": 9,
-      "customizations": [],
-      "addons": []
-    },
-    {
-      "id": 62,
-      "name": "Cheesecake",
-      "description": "Classic New York style cheesecake",
-      "price": 5.99,
-      "imageSrc": "/Images/cheesecake.jpg",
-      "category_id": 9,
-      "customizations": [
-        {
-          "id": "topping",
-          "name": "Topping",
-          "type": "radio",
-          "options": [
-            {
-              "value": "plain",
-              "label": "Plain",
-              "price_impact": 0
-            },
-            {
-              "value": "strawberry",
-              "label": "Strawberry",
-              "price_impact": 1.0
-            },
-            {
-              "value": "chocolate",
-              "label": "Chocolate",
-              "price_impact": 1.0
-            }
-          ],
-          "required": false
-        }
-      ],
-      "addons": []
-    },
-    {
-      "id": 63,
-      "name": "Gelato (2 scoops)",
-      "description": "Italian ice cream",
-      "price": 4.99,
-      "imageSrc": "/Images/gelato.jpg",
-      "category_id": 9,
-      "customizations": [
-        {
-          "id": "flavor",
-          "name": "Flavors",
-          "type": "checkbox",
-          "options": [
-            {
-              "value": "vanilla",
-              "label": "Vanilla"
-            },
-            {
-              "value": "chocolate",
-              "label": "Chocolate"
-            },
-            {
-              "value": "strawberry",
-              "label": "Strawberry"
-            },
-            {
-              "value": "pistachio",
-              "label": "Pistachio"
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": []
-    },
-    {
-      "id": 64,
-      "name": "Brownie Sundae",
-      "description": "Warm brownie with ice cream",
-      "price": 6.99,
-      "imageSrc": "/Images/brownie-sundae.jpg",
-      "category_id": 9,
-      "customizations": [],
-      "addons": [
-        {
-          "id": "whipped_cream",
-          "name": "Whipped Cream",
-          "price": 0.5
-        },
-        {
-          "id": "chocolate_sauce",
-          "name": "Chocolate Sauce",
-          "price": 0.5
-        }
-      ]
-    },
-    {
-      "id": 65,
-      "name": "Coca-Cola",
-      "description": "Classic cola",
-      "price": 2.5,
-      "imageSrc": "/Images/coke.jpg",
-      "category_id": 10,
-      "customizations": [
-        {
-          "id": "beverage_size",
-          "name": "Size",
-          "type": "radio",
-          "options": [
-            {
-              "value": "small",
-              "label": "Small",
-              "price_impact": 0
-            },
-            {
-              "value": "medium",
-              "label": "Medium",
-              "price_impact": 0.5
-            },
-            {
-              "value": "large",
-              "label": "Large",
-              "price_impact": 1.0
-            }
-          ],
-          "required": true
-        }
-      ],
-      "addons": []
-    },
-    {
-      "id": 66,
-      "name": "Fresh Orange Juice",
-      "description": "Freshly squeezed orange juice",
-      "price": 3.99,
-      "imageSrc": "/Images/orange-juice.jpg",
-      "category_id": 10,
-      "customizations": [],
-      "addons": []
-    },
-    {
-      "id": 67,
       "name": "Cappuccino",
-      "description": "Espresso with steamed milk",
-      "price": 3.99,
-      "imageSrc": "/Images/cappuccino.jpg",
+      "description": "Espresso with steamed milk and foam",
+      "price": 4.99,
+      "imageSrc": "cappuccino-coffee_aqlaoi",
       "category_id": 10,
       "customizations": [
         {
-          "id": "coffee_size",
+          "id": "size",
           "name": "Size",
           "type": "radio",
           "options": [
             {
               "value": "small",
-              "label": "Small",
-              "price_impact": 0
+              "label": "Small (8 oz)",
+              "price_impact": -1.0
             },
             {
               "value": "medium",
-              "label": "Medium",
-              "price_impact": 0.5
+              "label": "Medium (12 oz)",
+              "price_impact": 0
             },
             {
               "value": "large",
-              "label": "Large",
-              "price_impact": 1.0
+              "label": "Large (16 oz)",
+              "price_impact": 1.5
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "milk",
+          "name": "Milk Type",
+          "type": "radio",
+          "options": [
+            {
+              "value": "whole",
+              "label": "Whole Milk",
+              "price_impact": 0
+            },
+            {
+              "value": "skim",
+              "label": "Skim Milk",
+              "price_impact": 0
+            },
+            {
+              "value": "soy",
+              "label": "Soy Milk",
+              "price_impact": 0.5
+            },
+            {
+              "value": "almond",
+              "label": "Almond Milk",
+              "price_impact": 0.5
+            },
+            {
+              "value": "oat",
+              "label": "Oat Milk",
+              "price_impact": 0.75
             }
           ],
           "required": true
@@ -4161,63 +3706,155 @@
         {
           "id": "extra_shot",
           "name": "Extra Espresso Shot",
+          "price": 1.5
+        },
+        {
+          "id": "flavor",
+          "name": "Flavor Syrup",
           "price": 1.0
         }
       ]
     },
     {
-      "id": 68,
-      "name": "Mango Lassi",
-      "description": "Indian yogurt smoothie",
-      "price": 3.49,
-      "imageSrc": "/Images/mango-lassi.jpg",
-      "category_id": 10,
-      "customizations": [],
-      "addons": []
-    },
-    {
-      "id": 69,
-      "name": "Iced Tea",
-      "description": "Refreshing cold tea",
-      "price": 2.99,
-      "imageSrc": "/Images/iced-tea.jpg",
+      "id": 53,
+      "name": "Espresso",
+      "description": "Strong Italian coffee",
+      "price": 3.99,
+      "imageSrc": "espresso-coffee_nzcdc0",
       "category_id": 10,
       "customizations": [
         {
-          "id": "tea_flavor",
+          "id": "shots",
+          "name": "Shots",
+          "type": "radio",
+          "options": [
+            {
+              "value": "single",
+              "label": "Single Shot",
+              "price_impact": 0
+            },
+            {
+              "value": "double",
+              "label": "Double Shot",
+              "price_impact": 1.5
+            },
+            {
+              "value": "triple",
+              "label": "Triple Shot",
+              "price_impact": 3.0
+            }
+          ],
+          "required": true
+        }
+      ],
+      "addons": [
+        {
+          "id": "sugar",
+          "name": "Sugar",
+          "price": 0
+        },
+        {
+          "id": "cream",
+          "name": "Cream",
+          "price": 0.5
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "name": "Iced Tea",
+      "description": "Refreshing iced tea",
+      "price": 3.49,
+      "imageSrc": "masala-chai-tea_jqbfu5",
+      "category_id": 10,
+      "customizations": [
+        {
+          "id": "size",
+          "name": "Size",
+          "type": "radio",
+          "options": [
+            {
+              "value": "small",
+              "label": "Small (12 oz)",
+              "price_impact": -0.5
+            },
+            {
+              "value": "medium",
+              "label": "Medium (16 oz)",
+              "price_impact": 0
+            },
+            {
+              "value": "large",
+              "label": "Large (20 oz)",
+              "price_impact": 1.0
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "flavor",
           "name": "Flavor",
           "type": "radio",
           "options": [
             {
-              "value": "lemon",
-              "label": "Lemon",
+              "value": "black",
+              "label": "Black Tea",
               "price_impact": 0
-            },
-            {
-              "value": "peach",
-              "label": "Peach",
-              "price_impact": 0.5
             },
             {
               "value": "green",
               "label": "Green Tea",
+              "price_impact": 0
+            },
+            {
+              "value": "peach",
+              "label": "Peach Tea",
+              "price_impact": 0.5
+            },
+            {
+              "value": "lemon",
+              "label": "Lemon Tea",
+              "price_impact": 0.5
+            }
+          ],
+          "required": true
+        },
+        {
+          "id": "sweetness",
+          "name": "Sweetness",
+          "type": "radio",
+          "options": [
+            {
+              "value": "unsweetened",
+              "label": "Unsweetened",
+              "price_impact": 0
+            },
+            {
+              "value": "lightly_sweet",
+              "label": "Lightly Sweet",
+              "price_impact": 0
+            },
+            {
+              "value": "sweet",
+              "label": "Sweet",
+              "price_impact": 0
+            },
+            {
+              "value": "extra_sweet",
+              "label": "Extra Sweet",
               "price_impact": 0
             }
           ],
           "required": true
         }
       ],
-      "addons": []
-    },
-    {
-      "id": 70,
-      "name": "Sparkling Water",
-      "description": "Carbonated mineral water",
-      "price": 2.0,
-      "imageSrc": "/Images/sparkling-water.jpg",
-      "category_id": 10,
-      "customizations": [],
-      "addons": []
+      "addons": [
+        {
+          "id": "lemon_slice",
+          "name": "Lemon Slice",
+          "price": 0.5
+        }
+      ]
     }
   ]
 }
