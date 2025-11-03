@@ -1,16 +1,26 @@
-from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
 
 from config import settings
-from app.db.mongo import init_mongo
-from app.menu.router import router as menu_router
-from app.admin.admin import router as admin_router
 from app.orders.router import router as orders_router
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup logic (replace with your real init, e.g. await init_db())
+    # open DB connections, caches, etc.
+    try:
+
+        yield
+    finally:
+        # shutdown logic (close DB, cleanup)
+        # example: await some_shutdown_task()
+        pass
 
 app = FastAPI(
     title=settings.APP_NAME,
-    debug=settings.DEBUG_MODE
+    debug=settings.DEBUG_MODE,
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -21,19 +31,8 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-
-@app.on_event("startup")
-async def init_db():
-    await init_mongo()
-# --- API Endpoints ---
-
 @app.get("/")
 def home():
     return {"message": f"Welcome to {settings.APP_NAME}"}
 
-
-app.include_router(menu_router)
-app.include_router(admin_router)
 app.include_router(orders_router)
-
-

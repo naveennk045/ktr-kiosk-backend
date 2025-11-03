@@ -32,7 +32,6 @@ class OrderItem(Base):
     unit_price: Mapped[float] = mapped_column(Numeric(10, 2))
     quantity: Mapped[int] = mapped_column(Integer, default=1)
 
-    # store chosen customizations/addons snapshot
     options: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     order: Mapped[Order] = relationship(back_populates="items")
@@ -64,29 +63,10 @@ class Category(Document):
     """
     name: str
     description: Optional[str] = None
-    legacy_id: int = Field(..., unique=True)  #
+    legacy_id: int = Field(..., unique=True)
+
 
     class Settings:
         name = "categories"
-
-
-class MenuItem(Document):
-    """
-    A MenuItem document.
-    It links to a Category and embeds customizations/addons.
-    """
-    name: str
-    description: Optional[str] = None
-    price: float
-    imageSrc: str
-
-    category: Link[Category]
-    customizations: List[Customization] = []
-    addons: List[Addon] = []
-
-    legacy_id: int = Field(..., unique=True)
-
-    class Settings:
-        name = "menu_items"  # This is the collection name in MongoDB
 
 
