@@ -7,4 +7,6 @@ asyncpg
 psycopg2-binary
 requests
 python-multipart
-qrcode
+qrcode[pill]
+PyJWT
+cryptography
