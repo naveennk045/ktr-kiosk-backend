@@ -1,0 +1,65 @@
+import logging
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+import httpx
+import redis.asyncio as redis
+from .routers.catalog import catalog
+from .routers.order import order
+from .routers.payment import payment
+
+# Configure Logging
+logging.basicConfig(
+    level=logging.INFO,  # Use DEBUG for more details
+    format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),  # write to file
+        logging.StreamHandler()          # print to console
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+
+# Lifespan events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("🚀 FastAPI application starting up...")
+
+    # HTTP client setup
+    app.state.http_client = httpx.AsyncClient()
+    logger.info("HTTP client initialized successfully.")
+
+    # Redis setup
+    try:
+        app.state.redis_client = redis.Redis(
+            host='localhost', port=6379, decode_responses=True
+        )
+        await app.state.redis_client.ping()
+        logger.info("✅ Successfully connected to Redis.")
+    except Exception as e:
+        logger.error(f"❌ Error connecting to Redis: {e}")
+        app.state.redis_client = None
+
+    logger.info("FastAPI startup complete.")
+    yield
+
+    # Cleanup
+    await app.state.http_client.aclose()
+    if app.state.redis_client:
+        await app.state.redis_client.close()
+        logger.info("Redis connection closed.")
+    logger.info("🧹 Resources cleaned up. Application shutting down.")
+
+
+# FastAPI App
+app = FastAPI(lifespan=lifespan)
+
+@app.get("/")
+def read_root():
+    logger.info("Root endpoint accessed.")
+    return {"message": "Welcome to the KTR, The best South Indian restaurant!"}
+
+# Routers
+app.include_router(catalog.router, prefix="/catalog", tags=["catalog"])
+app.include_router(order.router, prefix="/orders", tags=["orders"])
+app.include_router(payment.router, prefix="/payments", tags=["payments"])
