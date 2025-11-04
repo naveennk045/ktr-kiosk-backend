@@ -1,8 +1,10 @@
 import logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import redis.asyncio as redis
+
 from .routers.catalog import catalog
 from .routers.order import order
 from .routers.payment import payment
@@ -53,6 +55,15 @@ async def lifespan(app: FastAPI):
 
 # FastAPI App
 app = FastAPI(lifespan=lifespan)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
