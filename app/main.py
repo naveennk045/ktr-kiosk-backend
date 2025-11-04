@@ -1,38 +1,43 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-from config import settings
-from app.orders.router import router as orders_router
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+import httpx
+import redis.asyncio as redis
+# from .config import settings
+from .routers import catalog  # Import your new router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup logic (replace with your real init, e.g. await init_db())
-    # open DB connections, caches, etc.
+    # --- Startup ---
+    # Create and store clients in app.state
+    app.state.http_client = httpx.AsyncClient()
+
     try:
+        app.state.redis_client = redis.Redis(
+            host='localhost', port=6379, decode_responses=True
+        )
+        await app.state.redis_client.ping()
+        print("Successfully connected to Redis.")
+    except Exception as e:
+        print(f"Error connecting to Redis: {e}")
+        app.state.redis_client = None
 
-        yield
-    finally:
-        # shutdown logic (close DB, cleanup)
-        # example: await some_shutdown_task()
-        pass
+    print("FastAPI application startup complete.")
 
-app = FastAPI(
-    title=settings.APP_NAME,
-    debug=settings.DEBUG_MODE,
-    lifespan=lifespan
-)
+    yield  # The application runs here
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+    # --- Shutdown ---
+    await app.state.http_client.aclose()
+    if app.state.redis_client:
+        await app.state.redis_client.close()
+    print("Cleaned up resources. Application shutting down.")
+
+
+# Initialize FastAPI App
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
-def home():
-    return {"message": f"Welcome to {settings.APP_NAME}"}
+def read_root():
+    return {"message": "Welcome to the KTR, The best south indian restaurant!"}
 
-app.include_router(orders_router)
+app.include_router(catalog.router, prefix="/catalog", tags=["catalog"])
