@@ -10,3 +10,5 @@ python-multipart
 qrcode[pill]
 PyJWT
 cryptography
+redis
+redis
