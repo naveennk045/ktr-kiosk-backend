@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     QR_INIT_ENDPOINT: str
     X_PROVIDER_ID: str
 
+    # Rista credentials
+    PI_KEY : str
+    SECRET_KEY : str
+    BRANCH_CODE : str
+    RISTA_BASE_URL : str
+
     APP_NAME: str = "API App"
     DEBUG_MODE: bool = False
 
