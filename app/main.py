@@ -16,7 +16,7 @@ logging.basicConfig(
     format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
     handlers=[
         logging.FileHandler("app.log"),  # write to file
-        logging.StreamHandler()          # print to console
+        logging.StreamHandler()  # print to console
     ]
 )
 
@@ -58,7 +58,6 @@ async def lifespan(app: FastAPI):
 # FastAPI App
 app = FastAPI(lifespan=lifespan)
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -67,10 +66,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 def read_root():
     logger.info("Root endpoint accessed.")
     return {"message": "Welcome to the KTR, The best South Indian restaurant!"}
+
 
 # Routers
 app.include_router(catalog.router, prefix="/catalog", tags=["catalog"])

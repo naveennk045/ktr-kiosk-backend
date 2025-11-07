@@ -1,12 +1,15 @@
 # Restaurant Kiosk API Documentation
 
 ## Base URL
+
 ```
 http://127.0.0.1:8000
 ```
 
 ## Overview
-This API provides endpoints for managing and retrieving menu data for a restaurant kiosk system. It supports fetching categories and menu items with their customizations and add-ons.
+
+This API provides endpoints for managing and retrieving menu data for a restaurant kiosk system. It supports fetching
+categories and menu items with their customizations and add-ons.
 
 ---
 
@@ -25,6 +28,7 @@ Retrieves a list of all available food categories.
 **Response Status:** `200 OK`
 
 **Response Body:**
+
 ```json
 [
   {
@@ -37,11 +41,13 @@ Retrieves a list of all available food categories.
 ```
 
 **Example Request:**
+
 ```bash
 curl -X GET http://127.0.0.1:8000/menu/categories
 ```
 
 **Example Response:**
+
 ```json
 [
   {
@@ -75,15 +81,16 @@ Retrieves all menu items for a specific category, including customization option
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| category_id | integer | Yes | The legacy ID of the category |
+| Parameter   | Type    | Required | Description                   |
+|-------------|---------|----------|-------------------------------|
+| category_id | integer | Yes      | The legacy ID of the category |
 
 **Request Headers:** None required
 
 **Response Status:** `200 OK`
 
 **Response Body:**
+
 ```json
 [
   {
@@ -124,11 +131,13 @@ Retrieves all menu items for a specific category, including customization option
 ```
 
 **Example Request:**
+
 ```bash
 curl -X GET http://127.0.0.1:8000/menu/categories/2/items
 ```
 
 **Example Response:**
+
 ```json
 [
   {
@@ -199,51 +208,51 @@ curl -X GET http://127.0.0.1:8000/menu/categories/2/items
 
 ### Category
 
-| Field | Type | Description |
-|-------|------|-------------|
-| _id | string | Unique identifier (MongoDB ObjectId) |
-| name | string | Category name |
-| description | string | Category description |
-| legacy_id | integer | Legacy numeric identifier |
+| Field       | Type    | Description                          |
+|-------------|---------|--------------------------------------|
+| _id         | string  | Unique identifier (MongoDB ObjectId) |
+| name        | string  | Category name                        |
+| description | string  | Category description                 |
+| legacy_id   | integer | Legacy numeric identifier            |
 
 ### Menu Item
 
-| Field | Type | Description |
-|-------|------|-------------|
-| _id | string | Unique identifier (MongoDB ObjectId) |
-| name | string | Item name |
-| description | string | Item description |
-| price | number | Base price of the item |
-| imageSrc | string | Path to item image |
-| category | object | Reference to parent category |
-| customizations | array | Available customization options |
-| addons | array | Available add-on items |
-| legacy_id | integer | Legacy numeric identifier |
+| Field          | Type    | Description                          |
+|----------------|---------|--------------------------------------|
+| _id            | string  | Unique identifier (MongoDB ObjectId) |
+| name           | string  | Item name                            |
+| description    | string  | Item description                     |
+| price          | number  | Base price of the item               |
+| imageSrc       | string  | Path to item image                   |
+| category       | object  | Reference to parent category         |
+| customizations | array   | Available customization options      |
+| addons         | array   | Available add-on items               |
+| legacy_id      | integer | Legacy numeric identifier            |
 
 ### Customization
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string | Customization identifier |
-| name | string | Display name for customization |
-| type | string | Input type (e.g., "radio", "checkbox") |
-| options | array | Available options for this customization |
-| required | boolean | Whether selection is mandatory |
+| Field    | Type    | Description                              |
+|----------|---------|------------------------------------------|
+| id       | string  | Customization identifier                 |
+| name     | string  | Display name for customization           |
+| type     | string  | Input type (e.g., "radio", "checkbox")   |
+| options  | array   | Available options for this customization |
+| required | boolean | Whether selection is mandatory           |
 
 ### Customization Option
 
-| Field | Type | Description |
-|-------|------|-------------|
-| value | string | Option value identifier |
-| label | string | Display label |
+| Field        | Type   | Description                             |
+|--------------|--------|-----------------------------------------|
+| value        | string | Option value identifier                 |
+| label        | string | Display label                           |
 | price_impact | number | Price adjustment (positive or negative) |
 
 ### Add-on
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string | Add-on identifier |
-| name | string | Add-on name |
+| Field | Type   | Description                      |
+|-------|--------|----------------------------------|
+| id    | string | Add-on identifier                |
+| name  | string | Add-on name                      |
 | price | number | Additional price for this add-on |
 
 ---
@@ -268,20 +277,25 @@ The system currently supports the following categories:
 ## Customization Types
 
 ### Spice Level
+
 Applied to various dishes (Indian, Chinese, Thai items)
+
 - Mild (no additional charge)
 - Medium (no additional charge)
 - Hot (no additional charge)
 - Extra Hot (+$0.50)
 
 ### Protein Choice
+
 Available for noodles and rice dishes
+
 - Chicken (no additional charge)
 - Beef (+$1.50)
 - Shrimp (+$2.00)
 - Tofu (-$0.50)
 
 ### Dumpling Filling
+
 - Pork (no additional charge)
 - Chicken (no additional charge)
 - Vegetable (-$0.50)
@@ -304,12 +318,12 @@ Available for noodles and rice dishes
 
 The API follows standard HTTP status codes:
 
-| Status Code | Description |
-|-------------|-------------|
-| 200 | Success - Request completed successfully |
-| 400 | Bad Request - Invalid parameters |
-| 404 | Not Found - Category or item not found |
-| 500 | Internal Server Error - Server-side error |
+| Status Code | Description                               |
+|-------------|-------------------------------------------|
+| 200         | Success - Request completed successfully  |
+| 400         | Bad Request - Invalid parameters          |
+| 404         | Not Found - Category or item not found    |
+| 500         | Internal Server Error - Server-side error |
 
 ---
 
