@@ -3,6 +3,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # points to project root
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
@@ -22,12 +23,13 @@ class Settings(BaseSettings):
     TRANSACTION_ENDPOINT: str
     QR_INIT_ENDPOINT: str
     X_PROVIDER_ID: str
+    PHONEPE_CALLBACK_URL: str
 
     # Rista credentials
-    PI_KEY : str
-    SECRET_KEY : str
-    BRANCH_CODE : str
-    RISTA_BASE_URL : str
+    PI_KEY: str
+    SECRET_KEY: str
+    BRANCH_CODE: str
+    RISTA_BASE_URL: str
 
     APP_NAME: str = "API App"
     DEBUG_MODE: bool = False
