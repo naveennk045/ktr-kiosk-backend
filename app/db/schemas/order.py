@@ -1,10 +1,12 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 
+
 class OrderItemCreate(BaseModel):
     sku_code: str = Field(..., alias="item_skuid")
     quantity: int
     model_config = ConfigDict(populate_by_name=True)
+
 
 class OrderCreateRequest(BaseModel):
     channel: str
@@ -12,8 +14,9 @@ class OrderCreateRequest(BaseModel):
     total_amount_include_tax: float
     total_amount_exclude_tax: float
 
+
 class OrderCreateResponse(BaseModel):
-    order_id: int
+    order_id: str
     # Send these keys in the response JSON:
     amount_with_tax: float = Field(serialization_alias="total_amount_include_tax")
     amount_without_tax: float = Field(serialization_alias="total_amount_exclude_tax")

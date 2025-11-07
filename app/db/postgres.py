@@ -13,7 +13,8 @@ class Base(DeclarativeBase):
 def _get_async_postgres_url() -> str:
     url = settings.POSTGRES_DB_URL
     if not url:
-        raise RuntimeError("POSTGRES_URL is not set. Provide an async URL like 'postgresql+asyncpg://user:pass@host:5432/db'.")
+        raise RuntimeError(
+            "POSTGRES_URL is not set. Provide an async URL like 'postgresql+asyncpg://user:pass@host:5432/db'.")
     if url.startswith("postgresql://") or url.startswith("postgres://"):
         # Force async driver
         url = url.replace("postgres://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -29,5 +30,3 @@ SessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_co
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:
         yield session
-
-
