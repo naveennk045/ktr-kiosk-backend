@@ -32,7 +32,7 @@ async def get_catalog_data(
         redis_client: redis.Redis,
         http_client: httpx.AsyncClient
 ) -> dict:
-    # ... (code from your example) ...
+
     cache_key = f"{channel}_catalog_data"
 
     # 1. Check cache first
@@ -90,7 +90,6 @@ def money(x) -> float:
 
 
 def index_tax_types(catalog: dict) -> dict:
-    # taxTypeId -> {"name": ..., "percentage": ...}
     return {
         t["taxTypeId"]: {"name": t["name"], "percentage": float(t["percentage"])}
         for t in catalog.get("taxTypes", [])

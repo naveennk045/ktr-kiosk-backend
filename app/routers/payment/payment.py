@@ -8,24 +8,22 @@ from sqlalchemy import select, update
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.phonepe_utils import (
-    make_base64, make_request_body,
-    compute_x_verify_for_endpoint, compute_qr_expiry
-)
-from app.core.rista_utils import generate_jwt_token
 from decimal import Decimal, ROUND_HALF_UP
 
-from app.core.config import settings
-from app.db.models.order import Order, PaymentStatus
-from app.core.dependencies import get_http_client, get_redis_client
-from app.db.postgres import get_db
-from app.core.phonepe_utils import make_hash  # Assuming you have this
-import redis.asyncio as redis
+from app.core.phonepe_utils import (
+    make_base64, make_request_body, make_hash,
+    compute_x_verify_for_endpoint, compute_qr_expiry,
+    verify_phonepe_callback_hash,
+)
 from app.core.rista_utils import (
     generate_jwt_token, get_catalog_data, money, index_tax_types,
     find_item, summarize_sale_taxes, build_item_with_taxes
 )
+from app.core.config import settings
+from app.db.models.order import Order, PaymentStatus
+from app.core.dependencies import get_http_client, get_redis_client
+from app.db.postgres import get_db
+import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -44,7 +42,6 @@ class QRInitiateResponse(BaseModel):
     provider: str = "PhonePe"
 
 
-# noinspection PyTypeChecker
 @router.post("/qr/init", response_model=QRInitiateResponse)
 async def initiate_qr_payment(
         qr_request: QRInitiateRequest,
@@ -92,7 +89,6 @@ async def initiate_qr_payment(
         "X-CALLBACK-URL": settings.PHONEPE_CALLBACK_URL,
         "X-CALL-MODE": "POST",
     }
-    # logger.info(headers)
     url = settings.UAT_BASE_URL + endpoint
     data = make_request_body(base64_payload)
 
@@ -102,7 +98,6 @@ async def initiate_qr_payment(
         resp.raise_for_status()
         payload = resp.json()
 
-        # Common fields (adjust keys to your actual PhonePe response)
         code = payload.get("code")
         data_node = payload.get("data", {}) or {}
         qr_string = data_node.get("qrCode") or data_node.get("qrString")
@@ -133,16 +128,6 @@ async def initiate_qr_payment(
         raise HTTPException(status_code=502, detail="Error connecting to payment provider")
 
 
-def verify_phonepe_callback_hash(base64_payload: str) -> str:
-    """
-    Computes the X-VERIFY hash for the S2S callback:
-    SHA256(base64_payload + salt_key) + ### + salt_index
-    """
-    verification_str = base64_payload + settings.SALT_KEY
-    hashed_str = make_hash(verification_str)  # Uses your existing make_hash
-    return f"{hashed_str}###{settings.SALT_KEY_INDEX}"
-
-
 async def post_order_to_kds(
         order: Order,
         http_client: httpx.AsyncClient,
@@ -155,7 +140,7 @@ async def post_order_to_kds(
     pass
 
 
-# --- MODIFIED PhonePe Webhook Endpoint ---
+# ---  PhonePe Webhook Endpoint ---
 @router.post("/webhook/phonepe")
 async def handle_phonepe_callback(
         request: Request,
@@ -163,7 +148,6 @@ async def handle_phonepe_callback(
         http_client: httpx.AsyncClient = Depends(get_http_client),
         redis_client: redis.Redis = Depends(get_redis_client)
 ):
-    # ... (Steps 1, 2, 3: Parsing and Signature Check - all correct) ...
     logger.info("Received PhonePe webhook...")
     x_verify_header = request.headers.get("X-VERIFY")
     try:
@@ -187,14 +171,12 @@ async def handle_phonepe_callback(
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid payload encoding")
 
-    # ... (Step 4: Get merchant_order_id and code - all correct) ...
     data_payload = payload.get("data", {})
     merchant_order_id = data_payload.get("merchantOrderId")
     code = payload.get("code")
     if not merchant_order_id:
         raise HTTPException(status_code=400, detail="Missing merchantOrderId in payload")
 
-    # --- THIS IS YOUR CORRECT LOCKING LOGIC ---
     try:
         async with db.begin():
             stmt = select(Order).where(
@@ -212,7 +194,6 @@ async def handle_phonepe_callback(
                 logger.info(f"Order {merchant_order_id} already completed. Skipping duplicate webhook.")
                 return {"status": "ok"}
 
-            # 5. Update DB and Post to KDS
             order.provider_code = code
             order.provider_resp = payload
 
@@ -220,20 +201,17 @@ async def handle_phonepe_callback(
                 logger.info(f"Payment success for {merchant_order_id}. Updating DB...")
                 order.payment_status = PaymentStatus.COMPLETED
 
-                # --- MODIFIED KDS POST LOGIC ---
-                kds_success, invoice_id = await post_order_to_kds(order, http_client, redis_client)
-
-                if kds_success:
-                    if invoice_id:
-                        logger.info(f"KDS Invoice ID for {merchant_order_id}: {invoice_id}")
-                        order.kds_invoice_id = invoice_id  # Save to DB (if you added the column)
-                    else:
-                        logger.warning(
-                            f"KDS post for {merchant_order_id} was successful (or 409), but no invoice ID was returned.")
-                else:
-                    # This is now a REAL critical error (e.g., 500, 401, etc.)
-                    logger.error(f"CRITICAL: Order {merchant_order_id} PAID but FAILED to post to KDS.")
-                # --- END OF MODIFIED LOGIC ---
+                # kds_success, invoice_id = await post_order_to_kds(order, http_client, redis_client)
+                #
+                # if kds_success:
+                #     if invoice_id:
+                #         logger.info(f"KDS Invoice ID for {merchant_order_id}: {invoice_id}")
+                #         order.kds_invoice_id = invoice_id  # Save to DB (if you added the column)
+                #     else:
+                #         logger.warning(
+                #             f"KDS post for {merchant_order_id} was successful (or 409), but no invoice ID was returned.")
+                # else:
+                #     logger.error(f"CRITICAL: Order {merchant_order_id} PAID but FAILED to post to KDS.")
 
             elif code in ("PAYMENT_PENDING", "PENDING"):
                 order.payment_status = PaymentStatus.PENDING
@@ -255,7 +233,6 @@ class StatusResponse(BaseModel):
     provider_raw: dict | None = None
 
 
-# noinspection PyTypeChecker
 @router.get("/status/{order_id}", response_model=StatusResponse)
 async def get_payment_status(
         order_id: str,
@@ -279,8 +256,6 @@ async def get_payment_status(
 
     # 2) Otherwise, query PhonePe and update DB
     endpoint = f"{settings.TRANSACTION_ENDPOINT}/{settings.MERCHANT_ID}/{order_id}/status"
-    # For status API, X-VERIFY = sha256(endpoint + salt_key) + ### + index in some specs.
-    # If your spec requires sha256(base64_payload + endpoint + salt), adjust accordingly.
     x_verify = make_hash(endpoint + settings.SALT_KEY) + f"###{settings.SALT_KEY_INDEX}"
 
     headers = {

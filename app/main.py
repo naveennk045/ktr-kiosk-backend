@@ -12,11 +12,11 @@ from .routers.payment import payment
 
 # Configure Logging
 logging.basicConfig(
-    level=logging.INFO,  # Use DEBUG for more details
+    level=logging.INFO,
     format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
     handlers=[
-        logging.FileHandler("app.log"),  # write to file
-        logging.StreamHandler()  # print to console
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
     ]
 )
 
@@ -31,18 +31,18 @@ async def lifespan(app: FastAPI):
     app.state.http_client = httpx.AsyncClient()
     logger.info("HTTP client initialized successfully.")
 
-    # Create tables (idempotent)
+    # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("✅ PostgreSQL tables ensured.")
+    logger.info("PostgreSQL tables ensured.")
 
     # Redis setup...
     try:
         app.state.redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
         await app.state.redis_client.ping()
-        logger.info("✅ Successfully connected to Redis.")
+        logger.info("Successfully connected to Redis.")
     except Exception as e:
-        logger.error(f"❌ Error connecting to Redis: {e}")
+        logger.error(f"Error connecting to Redis: {e}")
         app.state.redis_client = None
 
     logger.info("FastAPI startup complete.")
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     if app.state.redis_client:
         await app.state.redis_client.close()
         logger.info("Redis connection closed.")
-    logger.info("🧹 Resources cleaned up. Application shutting down.")
+    logger.info("Resources cleaned up. Application shutting down.")
 
 
 # FastAPI App

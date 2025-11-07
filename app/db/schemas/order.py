@@ -17,7 +17,6 @@ class OrderCreateRequest(BaseModel):
 
 class OrderCreateResponse(BaseModel):
     order_id: str
-    # Send these keys in the response JSON:
     amount_with_tax: float = Field(serialization_alias="total_amount_include_tax")
     amount_without_tax: float = Field(serialization_alias="total_amount_exclude_tax")
     model_config = ConfigDict(populate_by_name=True)

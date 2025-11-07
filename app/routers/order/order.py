@@ -22,7 +22,6 @@ async def create_order(
         redis_client: redis.Redis = Depends(get_redis_client),
         http_client: httpx.AsyncClient = Depends(get_http_client),
 ):
-    # ... (Steps 1, 2, and 3 for validation are all correct) ...
     # 1. Get trusted catalog data
     catalog_data = await get_catalog_data(request.channel, redis_client, http_client)
 
@@ -64,10 +63,7 @@ async def create_order(
 
     # 4. Save to Database
     try:
-        # --- THIS IS THE FIX ---
-
         # 1. Get the next available primary key from the sequence
-        #    (PostgreSQL default sequence name is <table>_<column>_seq)
         next_id_stmt = select(func.nextval('orders_id_seq'))
         next_id_result = await db.execute(next_id_stmt)
         next_id = next_id_result.scalar_one()
@@ -77,8 +73,8 @@ async def create_order(
 
         # 3. Create the order object WITH ALL required fields
         new_order = Order(
-            id=next_id,  # <-- Set the primary key manually
-            order_id=generated_kot_id,  # <-- Set the human-readable ID
+            id=next_id,
+            order_id=generated_kot_id,
             channel=request.channel,
             items=items_for_db,
             total_amount_exclude_tax=round(backend_total_exclude_tax, 2),
@@ -89,13 +85,10 @@ async def create_order(
         db.add(new_order)
 
         # 4. Commit the transaction
-        #    We don't need flush because we set all IDs ourselves
         await db.commit()
 
         # 5. Refresh to get DB-generated timestamps (like created_at)
         await db.refresh(new_order)
-
-        # --- END OF FIX ---
 
     except Exception as e:
         await db.rollback()
@@ -107,7 +100,7 @@ async def create_order(
 
     # Return the clean KOT ID
     return OrderCreateResponse(
-        order_id=new_order.order_id,  # <-- This is now "ktr-1"
+        order_id=new_order.order_id,
         amount_with_tax=new_order.total_amount_include_tax,
         amount_without_tax=new_order.total_amount_exclude_tax,
     )

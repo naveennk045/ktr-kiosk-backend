@@ -25,3 +25,14 @@ def compute_x_verify_for_endpoint(base64_payload: str, endpoint_path: str, salt_
 
 def compute_qr_expiry(now: datetime, expires_in_seconds: int) -> datetime:
     return now + timedelta(seconds=expires_in_seconds)
+
+
+def verify_phonepe_callback_hash(base64_payload: str) -> str:
+    """
+    Computes the X-VERIFY hash for the S2S callback:
+    SHA256(base64_payload + salt_key) + ### + salt_index
+    """
+    verification_str = base64_payload + settings.SALT_KEY
+    hashed_str = make_hash(verification_str)  # Uses your existing make_hash
+    return f"{hashed_str}###{settings.SALT_KEY_INDEX}"
+
