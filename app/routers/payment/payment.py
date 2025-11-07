@@ -6,19 +6,19 @@ import httpx
 from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
-from decimal import Decimal, ROUND_HALF_UP
+# from fastapi.concurrency import run_in_threadpool
+# from decimal import Decimal, ROUND_HALF_UP
 
 from app.core.phonepe_utils import (
     make_base64, make_request_body, make_hash,
     compute_x_verify_for_endpoint, compute_qr_expiry,
     verify_phonepe_callback_hash,
 )
-from app.core.rista_utils import (
-    generate_jwt_token, get_catalog_data, money, index_tax_types,
-    find_item, summarize_sale_taxes, build_item_with_taxes
-)
+# from app.core.rista_utils import (
+#     generate_jwt_token, get_catalog_data, money, index_tax_types,
+#     find_item, summarize_sale_taxes, build_item_with_taxes
+# )
 from app.core.config import settings
 from app.db.models.order import Order, PaymentStatus
 from app.core.dependencies import get_http_client, get_redis_client
@@ -233,6 +233,7 @@ class StatusResponse(BaseModel):
     provider_raw: dict | None = None
 
 
+# noinspection PyTypeChecker
 @router.get("/status/{order_id}", response_model=StatusResponse)
 async def get_payment_status(
         order_id: str,
@@ -282,6 +283,7 @@ async def get_payment_status(
             new_status = PaymentStatus.FAILED
 
         # Persist
+        # noinspection PyTypeChecker
         await db.execute(
             update(Order)
             .where(Order.id == order.id)
