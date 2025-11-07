@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import redis.asyncio as redis
 
+from app.db.postgres import engine, Base
 from .routers.catalog import catalog
 from .routers.order import order
 from .routers.payment import payment
@@ -27,15 +28,17 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("🚀 FastAPI application starting up...")
 
-    # HTTP client setup
     app.state.http_client = httpx.AsyncClient()
     logger.info("HTTP client initialized successfully.")
 
-    # Redis setup
+    # Create tables (idempotent)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("✅ PostgreSQL tables ensured.")
+
+    # Redis setup...
     try:
-        app.state.redis_client = redis.Redis(
-            host='localhost', port=6379, decode_responses=True
-        )
+        app.state.redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
         await app.state.redis_client.ping()
         logger.info("✅ Successfully connected to Redis.")
     except Exception as e:
@@ -45,7 +48,6 @@ async def lifespan(app: FastAPI):
     logger.info("FastAPI startup complete.")
     yield
 
-    # Cleanup
     await app.state.http_client.aclose()
     if app.state.redis_client:
         await app.state.redis_client.close()
