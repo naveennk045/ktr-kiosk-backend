@@ -4,28 +4,14 @@ import json
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
-import time
-import jwt
 
 from app.core.config import settings
 from app.core.dependencies import get_http_client, get_redis_client
+from app.core.rista_utils import generate_jwt_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def generate_jwt_token():
-    """
-    Using the secret key and api-key we need to generate token.
-    """
-    token_creation_time = int(time.time())
-    payload = {
-        "iss": settings.PI_KEY,
-        "iat": token_creation_time
-    }
-    token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-    return token
 
 
 @router.get("/")

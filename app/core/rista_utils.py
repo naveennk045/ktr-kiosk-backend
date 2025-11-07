@@ -1,6 +1,6 @@
-from core.config import settings
 import time
-
+import jwt
+from .config import settings
 def generate_jwt_token():
     """
     Using the secret key and api-key we need to generate token.
