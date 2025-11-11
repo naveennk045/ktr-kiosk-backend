@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     QR_INIT_ENDPOINT: str
     X_PROVIDER_ID: str
     PHONEPE_CALLBACK_URL: str
+    EDC_ENDPOINT: str
 
     # Rista credentials
     PI_KEY: str
