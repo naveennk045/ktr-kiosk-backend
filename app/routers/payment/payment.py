@@ -20,7 +20,7 @@ from app.db.postgres import get_db
 
 from app.db.schemas.payment import (
     QRInitiateRequest, QRInitiateResponse, StatusResponse,
-    EDCInitiateResponse, EDCInitiateRequest,
+    EDCInitiateResponse, EDCInitiateRequest, EDCStatusResponse
 )
 from app.services.payment_service import process_webhook_in_background
 
@@ -264,7 +264,7 @@ async def handle_phonepe_callback(
 
 
 # noinspection PyTypeChecker
-@router.get("/status/{order_id}", response_model=StatusResponse)
+@router.get("/qr/status/{order_id}", response_model=StatusResponse)
 async def get_payment_status(
         order_id: str,
         db: AsyncSession = Depends(get_db),
@@ -321,3 +321,144 @@ async def get_payment_status(
     except httpx.RequestError as e:
         logger.error(f"Network error calling PhonePe status: {e}")
         raise HTTPException(status_code=502, detail="Error connecting to payment provider")
+
+
+
+
+@router.get("/edc/status/{transaction_id}", response_model=EDCStatusResponse)
+async def check_edc_payment_status(
+        transaction_id: str,
+        db: AsyncSession = Depends(get_db),
+        http_client: httpx.AsyncClient = Depends(get_http_client),
+):
+    """
+    Check EDC payment status.
+    First checks local DB, then queries PhonePe if status is not final.
+
+    EDC StatusCheck API endpoint:
+    GET /v1/edc/transaction/{merchantId}/{transactionId}/status
+    """
+
+    # 1) Check database first
+    stmt = select(Order).where(Order.order_id == transaction_id)
+    order = (await db.execute(stmt)).scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    # If status is final, return from DB
+    if order.payment_status in (PaymentStatus.COMPLETED, PaymentStatus.FAILED, PaymentStatus.REFUNDED):
+        provider_resp = order.provider_resp or {}
+        data_node = provider_resp.get("data", {})
+
+        return EDCStatusResponse(
+            order_id=order.order_id,
+            transaction_id=transaction_id,
+            payment_status=order.payment_status,
+            provider_code=order.provider_code,
+            payment_mode=data_node.get("paymentMode"),
+            reference_number=data_node.get("referenceNumber") or order.provider_reference_id,
+            amount=data_node.get("amount"),
+            payment_state=data_node.get("paymentState"),
+            provider_raw=order.provider_resp,
+        )
+
+    # 2) Query PhonePe EDC StatusCheck API for pending transactions
+    endpoint = f"/v1/edc/transaction/{settings.MERCHANT_ID}/{transaction_id}/status"
+    x_verify = make_hash(endpoint + settings.SALT_KEY) + f"###{settings.SALT_KEY_INDEX}"
+
+    headers = {
+        "Content-Type": "application/json",
+        "X-VERIFY": x_verify,
+        "X-PROVIDER-ID": settings.X_PROVIDER_ID,
+    }
+
+    url = settings.UAT_BASE_URL + endpoint
+
+    try:
+        resp = await http_client.get(url, headers=headers, timeout=30.0)
+        resp.raise_for_status()
+        prov = resp.json()
+
+        success = prov.get("success", False)
+        code = prov.get("code")
+        message = prov.get("message", "")
+        data_node = prov.get("data", {}) or {}
+
+        # Map PhonePe response code to internal status
+        if code == "PAYMENT_SUCCESS":
+            new_status = PaymentStatus.COMPLETED
+        elif code in ("PAYMENT_ERROR", "PAYMENT_DECLINED", "PAYMENT_CANCELLED"):
+            new_status = PaymentStatus.FAILED
+        elif code in ("PAYMENT_PENDING", "PENDING"):
+            new_status = PaymentStatus.PENDING
+        else:
+            # Handle other codes like TRANSACTION_NOT_FOUND, etc.
+            new_status = PaymentStatus.PENDING
+
+        # Extract payment details
+        payment_modes = data_node.get("paymentModes", [])
+        payment_mode = payment_modes[0].get("mode") if payment_modes else None
+        reference_number = data_node.get("referenceNumber")
+
+        # Update database with latest status
+        await db.execute(
+            update(Order)
+            .where(Order.id == order.id)
+            .values(
+                payment_status=new_status,
+                provider_code=code,
+                provider_resp=prov,
+                provider_reference_id=reference_number,
+            )
+        )
+        await db.commit()
+
+        logger.info(f"EDC status check: {transaction_id} -> {code}")
+
+        return EDCStatusResponse(
+            order_id=order.order_id,
+            transaction_id=transaction_id,
+            payment_status=new_status,
+            provider_code=code,
+            payment_mode=payment_mode,
+            reference_number=reference_number,
+            amount=data_node.get("amount"),
+            payment_state=data_node.get("paymentState"),
+            provider_raw=prov,
+        )
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"EDC Status Error: {e.response.status_code} - {e.response.text}")
+
+        # Handle specific error codes
+        try:
+            error_response = e.response.json()
+            error_code = error_response.get("code")
+
+            if error_code == "TRANSACTION_NOT_FOUND":
+                # Transaction not found in PhonePe, return current DB status
+                return EDCStatusResponse(
+                    order_id=order.order_id,
+                    transaction_id=transaction_id,
+                    payment_status=order.payment_status,
+                    provider_code="TRANSACTION_NOT_FOUND",
+                    provider_raw=error_response,
+                )
+            else:
+                raise HTTPException(
+                    status_code=e.response.status_code,
+                    detail=error_response
+                )
+        except:
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail={"error": e.response.text}
+            )
+
+    except httpx.RequestError as e:
+        logger.error(f"Network error calling EDC status: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Error connecting to payment provider"
+        )

@@ -33,3 +33,16 @@ class EDCInitiateResponse(BaseModel):
     amount: int
     message: str
     provider: str = "PhonePe EDC"
+
+
+class EDCStatusResponse(BaseModel):
+    order_id: str
+    transaction_id: str
+    payment_status: PaymentStatus
+    provider_code: str | None = None
+    payment_mode: str | None = None
+    reference_number: str | None = None
+    amount: int | None = None
+    payment_state: str | None = None
+    provider_raw: dict | None = None
+
