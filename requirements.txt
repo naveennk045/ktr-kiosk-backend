@@ -1,3 +1,5 @@
+booktype
+httpx
 fastapi[all]
 beanie
 motor
