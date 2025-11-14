@@ -1,10 +1,13 @@
-from pydantic import BaseModel, Field
+from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from app.db.models.order import PaymentStatus  # Import your Enum
+
 
 class QRInitiateRequest(BaseModel):
     order_id: str = Field(..., min_length=1)
     amount_paise: int = Field(..., ge=1)
+
 
 class QRInitiateResponse(BaseModel):
     order_id: str
@@ -13,12 +16,18 @@ class QRInitiateResponse(BaseModel):
     expires_at: datetime | None = None
     provider: str = "PhonePe"
 
+
 class StatusResponse(BaseModel):
     order_id: str
     payment_status: PaymentStatus
     provider_code: str | None = None
     provider_message: str | None = None
     provider_raw: dict | None = None
+    kds_invoice_id: Optional[str] = None  # KDS invoice number
+
+    # ADDED: This enables SQLAlchemy ORM serialization
+    model_config = ConfigDict(from_attributes=True)
+
 
 class EDCInitiateRequest(BaseModel):
     """Minimal EDC request - frontend only sends these two fields"""
@@ -45,4 +54,7 @@ class EDCStatusResponse(BaseModel):
     amount: int | None = None
     payment_state: str | None = None
     provider_raw: dict | None = None
+    kds_invoice_id: Optional[str] = None  # KDS invoice number
 
+    # ADDED: This enables SQLAlchemy ORM serialization
+    model_config = ConfigDict(from_attributes=True)

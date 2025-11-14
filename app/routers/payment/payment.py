@@ -85,6 +85,7 @@ async def initiate_qr_payment(
         order.provider_txn_id = transaction_id
         order.provider_resp = payload
         order.qr_string = qr_string
+        order.payment_method = "QR"  # ADDED: Track payment method
         if expires_in:
             order.qr_expires_at = compute_qr_expiry(datetime.now(timezone.utc), int(expires_in))
         order.payment_status = PaymentStatus.PENDING
@@ -209,6 +210,7 @@ async def initiate_edc_payment(
         logger.error(f"Network error calling PhonePe EDC: {e}")
         raise HTTPException(status_code=502, detail="Error connecting to payment provider")
 
+
 # noinspection PyTypeChecker
 @router.post("/webhook/phonepe")
 async def handle_phonepe_callback(
@@ -275,10 +277,14 @@ async def get_payment_status(
     order = (await db.execute(stmt)).scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
     if order.payment_status in (PaymentStatus.COMPLETED, PaymentStatus.FAILED, PaymentStatus.REFUNDED):
         return StatusResponse(
-            order_id=order.order_id, payment_status=order.payment_status,
-            provider_code=order.provider_code, provider_raw=order.provider_resp,
+            order_id=order.order_id,
+            payment_status=order.payment_status,
+            provider_code=order.provider_code,
+            provider_raw=order.provider_resp,
+            kds_invoice_id=order.kds_invoice_id  # ADDED: Return KDS invoice ID
         )
 
     # 2) Otherwise, query PhonePe and update DB
@@ -311,9 +317,16 @@ async def get_payment_status(
         )
         await db.commit()
 
+        # Refresh to get latest kds_invoice_id if updated
+        await db.refresh(order)
+
         return StatusResponse(
-            order_id=order.order_id, payment_status=new_status,
-            provider_code=code, provider_message=message, provider_raw=prov,
+            order_id=order.order_id,
+            payment_status=new_status,
+            provider_code=code,
+            provider_message=message,
+            provider_raw=prov,
+            kds_invoice_id=order.kds_invoice_id  # ADDED: Return KDS invoice ID
         )
     except httpx.HTTPStatusError as e:
         logger.error(f"PhonePe Status Error: {e.response.status_code} - {e.response.text}")
@@ -321,8 +334,6 @@ async def get_payment_status(
     except httpx.RequestError as e:
         logger.error(f"Network error calling PhonePe status: {e}")
         raise HTTPException(status_code=502, detail="Error connecting to payment provider")
-
-
 
 
 @router.get("/edc/status/{transaction_id}", response_model=EDCStatusResponse)
@@ -361,6 +372,7 @@ async def check_edc_payment_status(
             amount=data_node.get("amount"),
             payment_state=data_node.get("paymentState"),
             provider_raw=order.provider_resp,
+            kds_invoice_id=order.kds_invoice_id  # ADDED: Return KDS invoice ID
         )
 
     # 2) Query PhonePe EDC StatusCheck API for pending transactions
@@ -414,6 +426,9 @@ async def check_edc_payment_status(
         )
         await db.commit()
 
+        # Refresh to get latest kds_invoice_id if updated by background task
+        await db.refresh(order)
+
         logger.info(f"EDC status check: {transaction_id} -> {code}")
 
         return EDCStatusResponse(
@@ -426,6 +441,7 @@ async def check_edc_payment_status(
             amount=data_node.get("amount"),
             payment_state=data_node.get("paymentState"),
             provider_raw=prov,
+            kds_invoice_id=order.kds_invoice_id  # ADDED: Return KDS invoice ID
         )
 
     except httpx.HTTPStatusError as e:
@@ -444,6 +460,7 @@ async def check_edc_payment_status(
                     payment_status=order.payment_status,
                     provider_code="TRANSACTION_NOT_FOUND",
                     provider_raw=error_response,
+                    kds_invoice_id=order.kds_invoice_id  # ADDED
                 )
             else:
                 raise HTTPException(
