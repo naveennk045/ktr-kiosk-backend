@@ -301,7 +301,6 @@ async def check_existing_sale(
         # On error, assume doesn't exist and try to post
         return False, None
 
-
 async def post_order_to_kds(
         order: Order,
         http_client: httpx.AsyncClient,
@@ -309,39 +308,40 @@ async def post_order_to_kds(
 ) -> tuple[bool, str | None]:
     """
     Post order to Rista KDS with idempotency and track KDS status on the order.
+
     Uses:
-      - order.order_id       -> orderTransactionId (idempotency key)
-      - order.kot_code       -> invoiceNumber (visible KOT: ktr-1, ktr-2, ...)
+      - order.order_id  -> orderTransactionId (idempotency key)
+      - order.kot_code  -> invoiceNumber (visible KOT: ktr-1, ktr-2, ...)
     """
     logger.info(f"Attempting to post order {order.order_id} to KDS...")
 
-    # 1. Check if sale already exists (idempotency check)
-    exists, existing_invoice = await check_existing_sale(order.order_id, http_client)
-    if exists:
+    # 0. Short‑circuit purely from DB if we already know it's posted
+    if order.kds_status == KdsStatus.POSTED and order.kds_invoice_id:
         logger.info(
-            f"Order {order.order_id} already posted to KDS. Invoice: {existing_invoice}"
+            f"KDS already POSTED in DB for order {order.order_id}. "
+            f"Invoice: {order.kds_invoice_id}"
         )
-        order.kds_status = KdsStatus.POSTED
-        order.kds_invoice_id = existing_invoice
-        order.kds_last_attempt_at = datetime.now(timezone.utc)
-        order.kds_last_error = None
-        return True, existing_invoice
+        return True, order.kds_invoice_id
 
-    # 2. Get catalog data
+    # 1. Get catalog data
     try:
         catalog = await get_catalog_data(order.channel, redis_client, http_client)
     except Exception as e:
         logger.error(f"Failed to get catalog for order {order.order_id}: {e}")
+        order.kds_status = KdsStatus.FAILED
+        order.kds_last_error = f"Catalog fetch failed: {e}"
         return False, None
 
     if not catalog.get("items"):
         logger.error(f"Empty catalog for channel {order.channel}")
+        order.kds_status = KdsStatus.FAILED
+        order.kds_last_error = "Empty catalog"
         return False, None
 
     tax_index = index_tax_types(catalog)
     catalog_items = catalog.get("items", [])
 
-    # 3. Build sale items
+    # 2. Build sale items
     sale_items: list[dict[str, Any]] = []
     sum_item_total = 0.0
     sum_tax_inc = 0.0
@@ -353,6 +353,8 @@ async def post_order_to_kds(
             logger.error(
                 f"Item SKU {item_spec.get('sku_code')} not found in catalog"
             )
+            order.kds_status = KdsStatus.FAILED
+            order.kds_last_error = f"SKU {item_spec.get('sku_code')} not found"
             return False, None
 
         line, tax_inc, tax_exc = build_item_with_taxes(
@@ -363,7 +365,7 @@ async def post_order_to_kds(
         sum_tax_inc += float(tax_inc)
         sum_tax_exc += float(tax_exc)
 
-    # 4. Build sale payload
+    # 3. Build sale payload
     sale_body: dict[str, Any] = {
         "branchCode": settings.BRANCH_CODE,
         "channel": order.channel,
@@ -402,7 +404,7 @@ async def post_order_to_kds(
     if sale_taxes:
         sale_body["taxes"] = sale_taxes
 
-    # 5. Generate JWT with unique request ID
+    # 4. Generate JWT with unique request ID
     try:
         request_id = f"kds_{order.order_id}_{int(time.time() * 1000)}"
         token = await run_in_threadpool(generate_jwt_token, request_id)
@@ -422,7 +424,7 @@ async def post_order_to_kds(
     url = f"{settings.RISTA_BASE_URL}/sale"
     logger.info(f"Posting order {order.order_id} to KDS...")
 
-    # Update attempt metadata before call
+    # Mark attempt before call
     order.kds_last_attempt_at = datetime.now(timezone.utc)
     order.kds_status = KdsStatus.PENDING
 
@@ -442,17 +444,17 @@ async def post_order_to_kds(
         return True, invoice_id
 
     except httpx.HTTPStatusError as e:
-        # Handle 409 Conflict gracefully
+        # Handle 409 Conflict gracefully: KDS says "already exists"
         if e.response.status_code == 409:
             logger.warning(
-                f"409 Conflict for {order.order_id}. Checking if order exists..."
+                f"409 Conflict for {order.order_id}. Checking if order exists in KDS..."
             )
             exists, existing_invoice = await check_existing_sale(
                 order.order_id, http_client
             )
             if exists:
                 logger.info(
-                    f"Confirmed: Order {order.order_id} exists. "
+                    f"Confirmed in KDS: Order {order.order_id} exists. "
                     f"Invoice: {existing_invoice}"
                 )
                 order.kds_invoice_id = existing_invoice

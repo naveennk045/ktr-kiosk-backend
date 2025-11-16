@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-
 @router.post("/init", response_model=EDCInitiateResponse)
 async def initiate_edc_payment(
         edc_request: EDCInitiateRequest,
@@ -124,7 +123,7 @@ async def initiate_edc_payment(
 
     except httpx.HTTPStatusError as e:
         logger.error(
-            f"PhonePe EDC Error: {e.response.status_code} - {e.response.text}"
+            f"PhonePe EDC Error: {e.response_status} - {e.response.text}"
         )
         try:
             error_detail = e.response.json()
@@ -139,8 +138,6 @@ async def initiate_edc_payment(
         raise HTTPException(
             status_code=502, detail="Error connecting to payment provider"
         )
-
-
 
 
 @router.get("/status/{transaction_id}", response_model=EDCStatusResponse)
@@ -203,13 +200,8 @@ async def check_edc_payment_status(
         )
 
     # 2) Query PhonePe EDC StatusCheck API for pending transactions
-    endpoint = (
-        f"/v1/edc/transaction/{settings.MERCHANT_ID}/{transaction_id}/status"
-    )
-    x_verify = (
-            make_hash(endpoint + settings.SALT_KEY)
-            + f"###{settings.SALT_KEY_INDEX}"
-    )
+    endpoint = f"/v1/edc/transaction/{settings.MERCHANT_ID}/{transaction_id}/status"
+    x_verify = make_hash(endpoint + settings.SALT_KEY) + f"###{settings.SALT_KEY_INDEX}"
 
     headers = {
         "Content-Type": "application/json",
@@ -229,19 +221,29 @@ async def check_edc_payment_status(
         message = prov.get("message", "")
         data_node = prov.get("data", {}) or {}
 
-        # Map PhonePe response code to internal status
-        if code == "PAYMENT_SUCCESS":
+        # Normalized provider status (from inner data)
+        provider_status = (data_node.get("status") or "").upper()
+
+        # Map PhonePe response to internal status:
+        # - Pay attention to code=="SUCCESS" and data.status=="SUCCESS"
+        if success and (
+                code in ("PAYMENT_SUCCESS", "SUCCESS")
+                or provider_status == "SUCCESS"
+        ):
             new_status = PaymentStatus.COMPLETED
         elif code in ("PAYMENT_ERROR", "PAYMENT_DECLINED", "PAYMENT_CANCELLED"):
             new_status = PaymentStatus.FAILED
         elif code in ("PAYMENT_PENDING", "PENDING"):
             new_status = PaymentStatus.PENDING
         else:
-            # Handle other codes like TRANSACTION_NOT_FOUND, etc.
+            # For safety, treat unknown codes as pending
             new_status = PaymentStatus.PENDING
 
         # Extract payment details
         payment_modes = data_node.get("paymentModes", [])
+        # In your sample JSON, paymentModes is under "paymentInstruments";
+        # if PhonePe actually returns "paymentInstruments", adapt this field:
+        # payment_modes = data_node.get("paymentInstruments", [])
         payment_mode = payment_modes[0].get("mode") if payment_modes else None
         reference_number = data_node.get("referenceNumber")
 
@@ -260,10 +262,7 @@ async def check_edc_payment_status(
         await db.refresh(order)
 
         # If now completed, ensure KDS is posted
-        if (
-                new_status == PaymentStatus.COMPLETED
-                and order.kds_status != KdsStatus.POSTED
-        ):
+        if new_status == PaymentStatus.COMPLETED and order.kds_status != KdsStatus.POSTED:
             kdssuccess, invoice = await post_order_to_kds(
                 order, http_client, redis_client
             )
