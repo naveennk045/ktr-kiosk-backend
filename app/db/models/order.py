@@ -1,5 +1,8 @@
 import enum
-from sqlalchemy import Column, Integer, String, Float, DateTime, Enum, UniqueConstraint
+from sqlalchemy import (
+    Column, Integer, String, Float, DateTime, Enum,
+    UniqueConstraint, Date
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from app.db.postgres import Base
@@ -13,97 +16,87 @@ class PaymentStatus(str, enum.Enum):
 
 
 class PaymentMethod(str, enum.Enum):
-    """Payment method used for the transaction"""
-    QR = "QR"  # Dynamic QR code
-    EDC = "EDC"  # EDC terminal (card/QR on device)
-    MANUAL = "MANUAL"  # Manual/cash payment
+    QR = "QR"
+    EDC = "EDC"
+    MANUAL = "MANUAL"
+
+
+class KdsStatus(str, enum.Enum):
+    NOT_POSTED = "NOT_POSTED"
+    PENDING = "PENDING"
+    POSTED = "POSTED"
+    FAILED = "FAILED"
 
 
 class Order(Base):
     __tablename__ = "orders"
-    __table_args__ = (UniqueConstraint("order_id", name="uq_orders_order_id"),)
+    __table_args__ = (
+        UniqueConstraint("order_id", name="uq_orders_order_id"),
+        UniqueConstraint("kot_date", "kot_number",
+                         name="uq_orders_kot_per_day"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # Your business identifier used also as PhonePe transactionId/merchantOrderId
+    # Global business/payment ID (used as PhonePe merchantOrderId)
     order_id = Column(String, index=True, nullable=False)
 
     channel = Column(String, index=True, nullable=False)
-
-    # Items as JSON array
     items = Column(JSONB, nullable=False)
 
-    # Amounts (store both if you need; paise in provider_amount_paise)
     total_amount_exclude_tax = Column(Float, nullable=False)
     total_amount_include_tax = Column(Float, nullable=False)
 
-    # Payment method tracking
+    # --- KOT (NEW) ---
+    kot_date = Column(Date, index=True, nullable=False)
+    kot_number = Column(Integer, nullable=False)
+    kot_code = Column(String, nullable=False, index=True)  # "ktr-1"
+
+    # --- Payment ---
     payment_method = Column(
         Enum(PaymentMethod),
         nullable=True,
-        comment="Payment method: QR, EDC, or MANUAL"
+        comment="Payment method: QR, EDC, or MANUAL",
     )
-
-    # Provider/payment metadata
     payment_status = Column(
         Enum(PaymentStatus),
         default=PaymentStatus.PENDING,
         nullable=False,
-        index=True  # Add index for faster status queries
+        index=True,
     )
-    provider_code = Column(
-        String,
-        nullable=True,
-        comment="PhonePe response code: PAYMENT_SUCCESS, PAYMENT_ERROR_xxx, etc."
-    )
-    provider_txn_id = Column(
-        String,
-        nullable=True,
-        index=True,  # Add index for faster webhook lookups
-        comment="Transaction ID from provider (same as order_id if reused)"
-    )
-    provider_reference_id = Column(
-        String,
-        nullable=True,
-        comment="EDC reference number (RRN) or UPI transaction reference"
-    )
-    provider_resp = Column(
-        JSONB,
-        nullable=True,
-        comment="Latest raw provider response JSON"
-    )
+
+    provider_code = Column(String, nullable=True)
+    provider_txn_id = Column(String, nullable=True, index=True)
+    provider_reference_id = Column(String, nullable=True)
+    provider_resp = Column(JSONB, nullable=True)
 
     # QR-specific fields
-    qr_string = Column(
-        String,
-        nullable=True,
-        comment="QR payload to render (if provided by provider)"
-    )
-    qr_expires_at = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="QR code expiration timestamp"
-    )
+    qr_string = Column(String, nullable=True)
+    qr_expires_at = Column(DateTime(timezone=True), nullable=True)
 
-    # KDS integration
-    kds_invoice_id = Column(
-        String,
-        nullable=True,
+    # --- KDS integration (extended) ---
+    kds_invoice_id = Column(String, nullable=True, index=True)
+    kds_status = Column(
+        Enum(KdsStatus),
+        default=KdsStatus.NOT_POSTED,
+        nullable=False,
         index=True,
-        comment="Invoice ID from KDS system after successful payment"
     )
+    kds_last_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    kds_last_error = Column(String, nullable=True)
 
-    # Timestamps
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
-        nullable=False
+        nullable=False,
     )
     updated_at = Column(
         DateTime(timezone=True),
         onupdate=func.now(),
-        comment="Last updated timestamp"
     )
 
     def __repr__(self):
-        return f"<Order(order_id={self.order_id}, status={self.payment_status}, method={self.payment_method})>"
+        return (
+            f"<Order(order_id={self.order_id}, kot={self.kot_code}, "
+            f"status={self.payment_status}, method={self.payment_method})>"
+        )
