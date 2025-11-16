@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-
 @router.post("/init", response_model=QRInitiateResponse)
 async def initiate_qr_payment(
         qr_request: QRInitiateRequest,
@@ -120,7 +119,6 @@ async def initiate_qr_payment(
         )
 
 
-# noinspection PyTypeChecker
 @router.get("/status/{order_id}", response_model=StatusResponse)
 async def get_payment_status(
         order_id: str,
@@ -134,7 +132,7 @@ async def get_payment_status(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # If already final, optionally try KDS once if not posted
+    # 2) If already final, optionally trigger KDS if NOT_POSTED
     if order.payment_status in (
             PaymentStatus.COMPLETED,
             PaymentStatus.FAILED,
@@ -142,15 +140,38 @@ async def get_payment_status(
     ):
         if (
                 order.payment_status == PaymentStatus.COMPLETED
-                and order.kds_status != KdsStatus.POSTED
+                and order.kds_status == KdsStatus.NOT_POSTED
         ):
-            kdssuccess, invoice = await post_order_to_kds(
-                order, http_client, redis_client
+            # Try to atomically acquire KDS posting lock
+            result = await db.execute(
+                update(Order)
+                .where(
+                    Order.id == order.id,
+                    Order.kds_status == KdsStatus.NOT_POSTED,
+                )
+                .values(kds_status=KdsStatus.PENDING)
+                .returning(Order.kds_status)
             )
-            if kdssuccess and invoice:
-                order.kds_invoice_id = invoice
+            row = result.first()
             await db.commit()
-            await db.refresh(order)
+
+            if row:
+                # This request owns the posting
+                await db.refresh(order)
+                kdssuccess, invoice = await post_order_to_kds(
+                    order, http_client, redis_client
+                )
+                if kdssuccess and invoice:
+                    order.kds_invoice_id = invoice
+                    order.kds_status = KdsStatus.POSTED
+                    order.kds_last_error = None
+                elif not kdssuccess:
+                    order.kds_status = KdsStatus.FAILED
+                await db.commit()
+                await db.refresh(order)
+            else:
+                # Someone else (likely webhook) changed kds_status in parallel
+                await db.refresh(order)
 
         return StatusResponse(
             order_id=order.order_id,
@@ -162,15 +183,12 @@ async def get_payment_status(
             kot_code=order.kot_code,
         )
 
-    # 2) Otherwise, query PhonePe and update DB
+    # 3) Otherwise, query PhonePe and update DB
     endpoint = (
         f"{settings.TRANSACTION_ENDPOINT}/"
         f"{settings.MERCHANT_ID}/{order_id}/status"
     )
-    x_verify = (
-            make_hash(endpoint + settings.SALT_KEY)
-            + f"###{settings.SALT_KEY_INDEX}"
-    )
+    x_verify = make_hash(endpoint + settings.SALT_KEY) + f"###{settings.SALT_KEY_INDEX}"
     headers = {
         "Content-Type": "application/json",
         "X-VERIFY": x_verify,
@@ -204,18 +222,35 @@ async def get_payment_status(
         await db.commit()
         await db.refresh(order)
 
-        # If now completed, ensure KDS is posted
-        if (
-                new_status == PaymentStatus.COMPLETED
-                and order.kds_status != KdsStatus.POSTED
-        ):
-            kdssuccess, invoice = await post_order_to_kds(
-                order, http_client, redis_client
+        # 4) If now completed, try to acquire KDS lock and post
+        if new_status == PaymentStatus.COMPLETED and order.kds_status == KdsStatus.NOT_POSTED:
+            result = await db.execute(
+                update(Order)
+                .where(
+                    Order.id == order.id,
+                    Order.kds_status == KdsStatus.NOT_POSTED,
+                )
+                .values(kds_status=KdsStatus.PENDING)
+                .returning(Order.kds_status)
             )
-            if kdssuccess and invoice:
-                order.kds_invoice_id = invoice
+            row = result.first()
             await db.commit()
-            await db.refresh(order)
+
+            if row:
+                await db.refresh(order)
+                kdssuccess, invoice = await post_order_to_kds(
+                    order, http_client, redis_client
+                )
+                if kdssuccess and invoice:
+                    order.kds_invoice_id = invoice
+                    order.kds_status = KdsStatus.POSTED
+                    order.kds_last_error = None
+                elif not kdssuccess:
+                    order.kds_status = KdsStatus.FAILED
+                await db.commit()
+                await db.refresh(order)
+            else:
+                await db.refresh(order)
 
         return StatusResponse(
             order_id=order.order_id,
@@ -239,4 +274,3 @@ async def get_payment_status(
         raise HTTPException(
             status_code=502, detail="Error connecting to payment provider"
         )
-
