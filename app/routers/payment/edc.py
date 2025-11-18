@@ -55,11 +55,11 @@ async def initiate_edc_payment(
         "orderId": edc_request.order_id,
         "transactionId": transaction_id,
         "amount": edc_request.amount_paise,
-        "paymentModes": ["CARD", "DQR"],  # Support both card and QR
+        "paymentModes": ["CARD"],
         "integrationMappingType": "ONE_TO_ONE",
         "terminalId": settings.TERMINAL_ID,
         "timeAllowedForHandoverToTerminalSeconds": 60,
-        "autoAccept": False,  # Cashier must confirm on terminal
+        "autoAccept": True,
     }
 
     # Remove None values
