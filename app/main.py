@@ -38,7 +38,12 @@ async def lifespan(app: FastAPI):
 
     # Redis setup...
     try:
-        app.state.redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+        app.state.redis_client = redis.Redis(
+            # host='redis',  # Docker service name
+            host='localhost',  # local service name
+            port=6379,
+            decode_responses=True
+        )
         await app.state.redis_client.ping()
         logger.info("Successfully connected to Redis.")
     except Exception as e:

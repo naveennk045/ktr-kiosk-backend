@@ -1,0 +1,67 @@
+# .env File Template - Complete (Use this as your single source of truth)
+
+# ============================================================================
+# DATABASE CREDENTIALS
+# ============================================================================
+DB_USER=ktr_user
+DB_PASSWORD=ktr_password
+DB_NAME=ktr_kiosk
+
+# ============================================================================
+# DATABASE URL (Constructed from above for LOCAL development)
+# ============================================================================
+# LOCAL DEVELOPMENT (on your machine):
+# DATABASE_URL=postgresql+asyncpg://ktr_user:ktr_password@localhost:5432/ktr_kiosk
+
+# DOCKER DEVELOPMENT (via docker-compose):
+# DATABASE_URL will be auto-set to: postgresql+asyncpg://ktr_user:ktr_password@postgres:5432/ktr_kiosk
+# (postgres is the Docker service name)
+
+# ============================================================================
+# REDIS CONFIGURATION
+# ============================================================================
+# LOCAL DEVELOPMENT:
+# REDIS_HOST=localhost
+# REDIS_PORT=6379
+
+# DOCKER DEVELOPMENT:
+# REDIS_HOST=redis
+# REDIS_PORT=6379
+# (These are set in docker-compose.yml automatically)
+
+# ============================================================================
+# PHONEPE PAYMENT GATEWAY
+# ============================================================================
+# Base URLs
+UAT_BASE_URL=https://uat-api.phonepe.com/gateway
+PRODUCTION_BASE_URL=https://api.phonepe.com/gateway
+
+# Credentials (Replace with your actual values)
+MERCHANT_ID=your-merchant-id-here
+SALT_KEY=your-salt-key-here
+SALT_KEY_INDEX=1
+STORE_ID=your-store-id
+TERMINAL_ID=your-terminal-id
+X_PROVIDER_ID=your-provider-id
+
+# Endpoints
+TRANSACTION_ENDPOINT=/pg/v1/status
+QR_INIT_ENDPOINT=/pg/v1/qr/init
+EDC_ENDPOINT=/v1/edc/transaction/init
+
+# Callback URL (where PhonePe sends webhooks)
+PHONEPE_CALLBACK_URL=https://your-domain.com/api/v1/payments/webhook/phonepe
+
+# ============================================================================
+# RISTA KDS (Kitchen Display System)
+# ============================================================================
+RISTA_BASE_URL=https://rista-api.example.com
+PI_KEY=your-merchant-pi-key
+SECRET_KEY=your-jwt-secret-key
+BRANCH_CODE=BRN001
+
+# ============================================================================
+# APPLICATION CONFIGURATION
+# ============================================================================
+APP_NAME=KTR Kiosk API
+DEBUG_MODE=false

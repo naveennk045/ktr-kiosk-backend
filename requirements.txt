@@ -1,4 +1,3 @@
-booktype
 httpx
 fastapi[all]
 beanie
@@ -12,5 +11,4 @@ python-multipart
 qrcode[pill]
 PyJWT
 cryptography
-redis
-redis
+redis>=5.0.1

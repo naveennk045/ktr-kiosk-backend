@@ -138,8 +138,6 @@ async def initiate_edc_payment(
         raise HTTPException(
             status_code=502, detail="Error connecting to payment provider"
         )
-
-
 @router.get("/status/{transaction_id}", response_model=EDCStatusResponse)
 async def check_edc_payment_status(
         transaction_id: str,
@@ -220,32 +218,40 @@ async def check_edc_payment_status(
         code = prov.get("code")
         message = prov.get("message", "")
         data_node = prov.get("data", {}) or {}
-
-        # Normalized provider status (from inner data)
         provider_status = (data_node.get("status") or "").upper()
 
-        # Map PhonePe response to internal status:
-        # - Pay attention to code=="SUCCESS" and data.status=="SUCCESS"
-        if success and (
-                code in ("PAYMENT_SUCCESS", "SUCCESS")
-                or provider_status == "SUCCESS"
-        ):
+        # Only treat as COMPLETED if both outer code and inner data.status == SUCCESS
+        is_completed = (
+                success and
+                code in ("PAYMENT_SUCCESS", "SUCCESS") and
+                provider_status == "SUCCESS"
+        )
+
+        if is_completed:
             new_status = PaymentStatus.COMPLETED
         elif code in ("PAYMENT_ERROR", "PAYMENT_DECLINED", "PAYMENT_CANCELLED"):
             new_status = PaymentStatus.FAILED
-        elif code in ("PAYMENT_PENDING", "PENDING"):
+        elif code in ("PAYMENT_PENDING", "PENDING") or provider_status in ("PENDING", ""):
             new_status = PaymentStatus.PENDING
         else:
-            # For safety, treat unknown codes as pending
+            # For safety, treat unknown as pending
             new_status = PaymentStatus.PENDING
 
-        # Extract payment details
-        payment_modes = data_node.get("paymentModes", [])
-        # In your sample JSON, paymentModes is under "paymentInstruments";
-        # if PhonePe actually returns "paymentInstruments", adapt this field:
-        # payment_modes = data_node.get("paymentInstruments", [])
-        payment_mode = payment_modes[0].get("mode") if payment_modes else None
+        # Extract payment details robustly
+        payment_mode = data_node.get("paymentMode")
         reference_number = data_node.get("referenceNumber")
+
+        # Try "paymentInstruments" for more payment info if missing/empty
+        if not payment_mode and "paymentInstruments" in data_node:
+            instruments = data_node["paymentInstruments"]
+            if instruments and isinstance(instruments, list):
+                first = instruments[0]
+                payment_mode = first.get("type")
+        if not reference_number and "paymentInstruments" in data_node:
+            instruments = data_node["paymentInstruments"]
+            if instruments and isinstance(instruments, list):
+                first = instruments[0]
+                reference_number = first.get("referenceNumber")
 
         # Update database with latest status
         await db.execute(
@@ -271,7 +277,7 @@ async def check_edc_payment_status(
             await db.commit()
             await db.refresh(order)
 
-        logger.info(f"EDC status check: {transaction_id} -> {code}")
+        logger.info(f"EDC status check: {transaction_id} -> code={code}, status={provider_status}, db={new_status}")
 
         return EDCStatusResponse(
             order_id=order.order_id,
@@ -292,12 +298,9 @@ async def check_edc_payment_status(
         logger.error(
             f"EDC Status Error: {e.response.status_code} - {e.response.text}"
         )
-
-        # Handle specific error codes
         try:
             error_response = e.response.json()
             error_code = error_response.get("code")
-
             if error_code == "TRANSACTION_NOT_FOUND":
                 # Transaction not found in PhonePe, return current DB status
                 return EDCStatusResponse(
