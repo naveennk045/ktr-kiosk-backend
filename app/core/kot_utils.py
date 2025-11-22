@@ -24,7 +24,7 @@ async def generate_kot(session: AsyncSession) -> tuple[date, int, str]:
 
     counter.last_number += 1
     kot_number = counter.last_number
-    kot_code = f"ktr-{kot_number}"
+    kot_code = f"KTR-{kot_number}"
 
     # Commit happens in caller
     return today, kot_number, kot_code
