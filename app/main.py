@@ -9,7 +9,7 @@ from app.db.postgres import engine, Base
 from .routers.catalog import catalog
 from .routers.order import order
 from .routers.payment import payment
-
+from app.core.config import settings
 # Configure Logging
 logging.basicConfig(
     level=logging.INFO,
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     try:
         app.state.redis_client = redis.Redis(
             # host='redis',  # Docker service name
-            host='localhost',  # local service name
+            host= settings.REDIS_HOST,  # local service name
             port=6379,
             decode_responses=True
         )

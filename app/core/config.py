@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # points to project ro
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env.local",
+        env_file=BASE_DIR / ".env.docker",
         extra="ignore"
     )
 
@@ -34,6 +34,8 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "API App"
     DEBUG_MODE: bool = False
+
+    REDIS_HOST: str
 
 
 settings = Settings()
