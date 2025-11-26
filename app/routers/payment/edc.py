@@ -138,6 +138,8 @@ async def initiate_edc_payment(
         raise HTTPException(
             status_code=502, detail="Error connecting to payment provider"
         )
+
+
 @router.get("/status/{transaction_id}", response_model=EDCStatusResponse)
 async def check_edc_payment_status(
         transaction_id: str,

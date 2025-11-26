@@ -1,6 +1,7 @@
 
 import uuid
 import logging
+import math
 
 import httpx
 import redis.asyncio as redis
@@ -102,13 +103,16 @@ async def create_order(
         kot_date, kot_number, kot_code = await generate_kot(db)
 
         # 6. Create the Order row
+
         new_order = Order(
             id=next_id,
             order_id=generated_order_id,
             channel=request.channel,
             items=items_for_db,
-            total_amount_exclude_tax=round(backend_total_exclude_tax, 2),
-            total_amount_include_tax=round(backend_total_include_tax, 2),
+
+            total_amount_exclude_tax = math.ceil(backend_total_exclude_tax),
+            total_amount_include_tax = math.ceil(backend_total_include_tax),
+
             payment_status=PaymentStatus.PENDING,
             payment_method=None,  # set later by QR/EDC init
 
