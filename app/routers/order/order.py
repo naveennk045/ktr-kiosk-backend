@@ -96,7 +96,8 @@ async def create_order(
 
         # 4. Generate global order_id (UUID based)
         #    This is what you use as PhonePe merchantOrderId and Rista orderTransactionId
-        generated_order_id = f"ord-{uuid.uuid4().hex}"
+        full_order_uuid = str(uuid.uuid4()).upper()
+        generated_order_id = f"KTR-{full_order_uuid[0:8]+full_order_uuid[10:12]}"
         # If you prefer plain UUID: generated_order_id = str(uuid.uuid4())
 
         # 5. Generate KOT for today (ktr-1, ktr-2, ...)
