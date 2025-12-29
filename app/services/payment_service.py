@@ -2,7 +2,7 @@ import logging
 import httpx
 import redis.asyncio as redis
 from sqlalchemy import select, update
-from app.db.postgres import SessionLocal
+from app.db.session import SessionLocal
 from app.db.models.order import Order, PaymentStatus, KdsStatus
 from app.core.rista_utils import post_order_to_kds
 

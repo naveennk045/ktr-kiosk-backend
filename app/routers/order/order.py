@@ -10,7 +10,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_http_client, get_redis_client
-from app.db.postgres import get_db
+from app.db.session import get_db
 from app.db.schemas.order import OrderCreateRequest, OrderCreateResponse
 from app.core.rista_utils import get_catalog_data
 from app.core.kot_utils import generate_kot

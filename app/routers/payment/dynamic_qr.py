@@ -18,7 +18,7 @@ from app.core.phonepe_utils import (
 from app.core.config import settings
 from app.db.models.order import Order, PaymentStatus, KdsStatus
 from app.core.dependencies import get_http_client, get_redis_client
-from app.db.postgres import get_db
+from app.db.session import get_db
 
 from app.db.schemas.payment import (
     QRInitiateRequest, QRInitiateResponse, StatusResponse,

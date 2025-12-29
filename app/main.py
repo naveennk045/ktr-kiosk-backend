@@ -5,8 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import redis.asyncio as redis
 
-from app.db.postgres import engine, Base
-from .routers.catalog import catalog
+from app.db.session import engine, Base
+from .routers import catalog
 from .routers.order import order
 from .routers.payment import payment
 from app.core.config import settings
