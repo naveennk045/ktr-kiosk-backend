@@ -1,25 +1,21 @@
 import enum
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime, Enum,
-    UniqueConstraint, Date
+    Column, Integer, String, DateTime, Enum,
+    UniqueConstraint, Date, Numeric, Index
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from app.db.session import Base
 
-
 class PaymentStatus(str, enum.Enum):
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
-    REFUNDED = "REFUNDED"
-
 
 class PaymentMethod(str, enum.Enum):
     QR = "QR"
-    EDC = "EDC"
+    CARD = "CARD"
     MANUAL = "MANUAL"
-
 
 class KdsStatus(str, enum.Enum):
     NOT_POSTED = "NOT_POSTED"
@@ -27,37 +23,36 @@ class KdsStatus(str, enum.Enum):
     POSTED = "POSTED"
     FAILED = "FAILED"
 
+class OrderType(str, enum.Enum):
+    DINEIN = "DINEIN"
+    TAKEAWAY = "TAKEAWAY"
 
 class Order(Base):
     __tablename__ = "orders"
     __table_args__ = (
         UniqueConstraint("order_id", name="uq_orders_order_id"),
-        UniqueConstraint("kot_date", "kot_number",
-                         name="uq_orders_kot_per_day"),
+        UniqueConstraint("kot_date", "kot_number", name="uq_orders_kot_per_day"),
+        Index("idx_orders_report", "created_at", "payment_status", "order_type"),
+        Index("idx_orders_kds_sync", "payment_status", "kds_status"),
+        Index("idx_orders_items_gin", "items", postgresql_using="gin"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
-
-    # Global business/payment ID (used as PhonePe merchantOrderId)
     order_id = Column(String, index=True, nullable=False)
-
     channel = Column(String, index=True, nullable=False)
+
+    order_type = Column(Enum(OrderType), nullable=False, index=True)
+
     items = Column(JSONB, nullable=False)
 
-    total_amount_exclude_tax = Column(Float, nullable=False)
-    total_amount_include_tax = Column(Float, nullable=False)
+    total_amount_exclude_tax = Column(Numeric(10, 2), nullable=False)
+    total_amount_include_tax = Column(Numeric(10, 2), nullable=False)
 
-    # --- KOT (NEW) ---
     kot_date = Column(Date, index=True, nullable=False)
     kot_number = Column(Integer, nullable=False)
-    kot_code = Column(String, nullable=False, index=True)  # "ktr-1"
+    kot_code = Column(String, nullable=False, index=True)
 
-    # --- Payment ---
-    payment_method = Column(
-        Enum(PaymentMethod),
-        nullable=True,
-        comment="Payment method: QR, EDC, or MANUAL",
-    )
+    payment_method = Column(Enum(PaymentMethod), nullable=True)
     payment_status = Column(
         Enum(PaymentStatus),
         default=PaymentStatus.PENDING,
@@ -70,11 +65,9 @@ class Order(Base):
     provider_reference_id = Column(String, nullable=True)
     provider_resp = Column(JSONB, nullable=True)
 
-    # QR-specific fields
     qr_string = Column(String, nullable=True)
     qr_expires_at = Column(DateTime(timezone=True), nullable=True)
 
-    # --- KDS integration (extended) ---
     kds_invoice_id = Column(String, nullable=True, index=True)
     kds_status = Column(
         Enum(KdsStatus),
@@ -97,6 +90,6 @@ class Order(Base):
 
     def __repr__(self):
         return (
-            f"<Order(order_id={self.order_id}, kot={self.kot_code}, "
-            f"status={self.payment_status}, method={self.payment_method})>"
+            f"<Order(id={self.order_id}, type={self.order_type}, "
+            f"total={self.total_amount_include_tax}, status={self.payment_status})>"
         )

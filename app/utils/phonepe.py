@@ -3,7 +3,7 @@ import base64
 import hashlib
 from datetime import datetime, timedelta
 from typing import Any, Dict
-from .config import settings
+from app.core.config import settings
 
 def make_base64(json_obj: Dict[str, Any]) -> str:
     json_str = json.dumps(json_obj, separators=(',', ':'))

@@ -2,7 +2,6 @@ from sqlalchemy import Column, Integer, Date, DateTime, UniqueConstraint
 from sqlalchemy.sql import func
 from app.db.session import Base
 
-
 class KotCounter(Base):
     __tablename__ = "kot_counters"
     __table_args__ = (
