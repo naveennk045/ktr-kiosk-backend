@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     POSTGRES_DB_URL: str | None = None
 
     # PhonePe constants
-    UAT_BASE_URL: str
-    PRODUCTION_BASE_URL: str
+    PHONEPE_BASE_URL: str
+    # PRODUCTION_BASE_URL: str
     MERCHANT_ID: str
     SALT_KEY: str
     SALT_KEY_INDEX: str

@@ -74,7 +74,7 @@ class PaymentService:
             "X-CALLBACK-URL": settings.PHONEPE_CALLBACK_URL,
             "X-CALL-MODE": "POST",
         }
-        url = settings.UAT_BASE_URL + endpoint
+        url = settings.PHONEPE_BASE_URL + endpoint
 
         try:
             resp = await self.http_client.post(url, json={"request": base64_payload}, headers=headers, timeout=30.0)
@@ -115,6 +115,11 @@ class PaymentService:
         if order.payment_status == PaymentStatus.COMPLETED:
             return order
 
+        # Return existing EDC response if pending
+        if order.payment_status == PaymentStatus.PENDING and order.provider_resp:
+            logger.info(f"Returning existing EDC request for pending order {order_id}")
+            return order
+
         # 2. Build Payload
         # 2. Build Payload
         request_payload = {
@@ -142,7 +147,7 @@ class PaymentService:
             "X-PROVIDER-ID": settings.X_PROVIDER_ID,
             "X-CALL-MODE": "POST",
         }
-        url = settings.UAT_BASE_URL + endpoint
+        url = settings.PHONEPE_BASE_URL + endpoint
 
         try:
             resp = await self.http_client.post(url, json={"request": base64_payload}, headers=headers, timeout=30.0)
@@ -189,7 +194,7 @@ class PaymentService:
             "X-VERIFY": x_verify,
             "X-PROVIDER-ID": settings.X_PROVIDER_ID,
         }
-        url = settings.UAT_BASE_URL + endpoint
+        url = settings.PHONEPE_BASE_URL + endpoint
 
         try:
             resp = await self.http_client.get(url, headers=headers, timeout=30.0)
