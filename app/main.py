@@ -9,6 +9,7 @@ from app.db.session import engine, Base
 from .routers import catalog, order
 from .routers.payment import payment
 from app.core.config import settings
+
 # Configure Logging
 logging.basicConfig(
     level=logging.INFO,
