@@ -74,6 +74,9 @@ class PaymentService:
             "X-CALLBACK-URL": settings.PHONEPE_CALLBACK_URL,
             "X-CALL-MODE": "POST",
         }
+        logger.info(headers)
+        logger.info(request_payload)
+
         url = settings.PHONEPE_BASE_URL + endpoint
 
         try:
@@ -101,6 +104,9 @@ class PaymentService:
             await self.db.refresh(order)
             return order
 
+        except httpx.HTTPStatusError as e:
+            logger.error(f"QR Init HTTP Error: {e.response.status_code} - {e.response.text}")
+            raise HTTPException(status_code=e.response.status_code, detail=f"Payment Gateway Error: {e.response.text}")
         except Exception as e:
             logger.error(f"QR Init Failed: {e}", exc_info=True)
             raise HTTPException(status_code=502, detail="Payment Gateway Error")
@@ -148,7 +154,8 @@ class PaymentService:
             "X-CALL-MODE": "POST",
         }
         url = settings.PHONEPE_BASE_URL + endpoint
-
+        logger.info(headers)
+        logger.info(request_payload)
         try:
             resp = await self.http_client.post(url, json={"request": base64_payload}, headers=headers, timeout=30.0)
             resp.raise_for_status()
@@ -163,8 +170,11 @@ class PaymentService:
             await self.db.commit()
             await self.db.refresh(order)
             return order
+        except httpx.HTTPStatusError as e:
+            logger.error(f"EDC Init HTTP Error: {e.response.status_code} - {e.response.text}")
+            raise HTTPException(status_code=e.response.status_code, detail=f"EDC Gateway Error: {e.response.text}")
         except Exception as e:
-            logger.error(f"EDC Init Failed: {e}")
+            logger.error(f"EDC Init Failed: {e}", exc_info=True)
             raise HTTPException(status_code=502, detail="EDC Error")
 
     # --- STATUS CHECK LOGIC (Shared) ---
@@ -231,8 +241,11 @@ class PaymentService:
 
             return order
 
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Status Check HTTP Error: {e.response.status_code} - {e.response.text}")
+            return order
         except Exception as e:
-            logger.error(f"Status Check Error: {e}")
+            logger.error(f"Status Check Error: {e}", exc_info=True)
             return order
 
     async def handle_webhook(self, merchant_order_id: str, code: str, payload: dict):
