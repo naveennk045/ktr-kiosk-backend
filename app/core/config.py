@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # points to project ro
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env.production",
+        env_file=BASE_DIR / ".env.local",
         extra="ignore"
     )
 

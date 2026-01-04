@@ -30,18 +30,39 @@ class CatalogService:
         CATEGORY_IMAGES = {
             "6868ca5dc29c8ed4d3c98dd5": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032823/Idli_oh6wpb.jpg",
             "68e778dd0c42e107fdf5cf3f": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767033058/65afb1fd-9f84-4ae0-b4ea-ad1f78f11835.png",
-            "6868ca5dc29c8ed4d3c98dd4": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",
+            "6868ca5dc29c8ed4d3c98dd4": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Davanagere_Dose_rsju7o.jpg",
             "6868ca5dc29c8ed4d3c98dd8": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",
-            "6868ca5dc29c8ed4d3c98dd3": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Davanagere_Dose_rsju7o.jpg",
+            "6868ca5dc29c8ed4d3c98dd3": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",
             "6868ca5dc29c8ed4d3c98dd7": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032825/Rice_j5hjnu.jpg",
             "6868ca5dc29c8ed4d3c98dd6": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg"
         }
 
         if catalog_data and "categories" in catalog_data:
+            # 1. Inject Images
             for category in catalog_data["categories"]:
                 cat_id = category.get("categoryId")
                 if cat_id in CATEGORY_IMAGES:
                     category["imageURL"] = CATEGORY_IMAGES[cat_id]
+
+            # 2. Sort Categories
+            CATEGORY_ORDER = [
+                "6868ca5dc29c8ed4d3c98dd3",  # Davanagere Dose
+                "6868ca5dc29c8ed4d3c98dd4",  # Bengaluru Dose
+                "6868ca5dc29c8ed4d3c98dd5",  # Idli
+                "6868ca5dc29c8ed4d3c98dd7",  # Rice
+                "6868ca5dc29c8ed4d3c98dd6",  # Wada/Snacks
+                "6868ca5dc29c8ed4d3c98dd8",  # Coffee
+                "68e778dd0c42e107fdf5cf3f",  # BEVERAGE
+            ]
+
+            def get_sort_index(cat):
+                cid = cat.get("categoryId")
+                try:
+                    return CATEGORY_ORDER.index(cid)
+                except ValueError:
+                    return 999  # Put unknown categories at the end
+
+            catalog_data["categories"].sort(key=get_sort_index)
 
         # 3. Store in cache
         try:
