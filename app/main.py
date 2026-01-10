@@ -6,7 +6,7 @@ import httpx
 import redis.asyncio as redis
 
 from app.db.session import engine, Base
-from .routers import catalog, order
+from .routers import catalog, order, admin, dashboard
 from .routers.payment import payment
 from app.core.config import settings
 
@@ -80,3 +80,5 @@ def read_root():
 app.include_router(catalog.router, prefix="/catalog", tags=["catalog"])
 app.include_router(order.router, prefix="/orders", tags=["orders"])
 app.include_router(payment.router, prefix="/payments", tags=["payments"])
+app.include_router(dashboard.router, prefix="/analytics", tags=["analytics"])
+app.include_router(admin.router)

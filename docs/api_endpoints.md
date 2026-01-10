@@ -89,6 +89,7 @@ Creates a new order, calculates taxes, generates a KOT number, and returns the o
 
 ### Initiate EDC Payment
 Push a payment request to the PhonePe EDC terminal.
+**Note**: `merchant_id` and `terminal_id` are automatically resolved based on the `store_id`.
 
 **Endpoint**: `POST /payments/edc/init`
 
@@ -96,7 +97,8 @@ Push a payment request to the PhonePe EDC terminal.
 ```json
 {
   "order_id": "KTR-D649054EBF",
-  "amount_paise": 42000
+  "amount_paise": 42000,
+  "store_id": "teststore1"
 }
 ```
 
@@ -153,7 +155,8 @@ Generate a dynamic QR code for the order.
 ```json
 {
   "order_id": "KTR-BFA7DE6482",
-  "amount_paise": 42000
+  "amount_paise": 42000,
+  "store_id": "KTRVER01"
 }
 ```
 
@@ -189,5 +192,34 @@ Check the status of a QR transaction.
   "kds_invoice_id": "15835",
   "kds_status": "POSTED",
   "kot_code": "KTR-23"
+}
+```
+
+---
+
+## 5. Cash Payment API
+
+### Initiate Cash Payment
+Record a cash payment for an order. This immediately marks the order as COMPLETED and syncs to KDS.
+
+**Endpoint**: `POST /payments/cash/init`
+
+**Request Body**:
+```json
+{
+  "order_id": "KTR-F5C9871E0C",
+  "amount_paise": 42000,
+  "store_id": "KTRVER01"
+}
+```
+
+**Response**:
+```json
+{
+  "order_id": "KTR-F5C9871E0C",
+  "payment_status": "COMPLETED",
+  "provider_code": "SUCCESS",
+  "provider_message": "Cash Payment Recorded",
+  "kds_status": "POSTED"
 }
 ```

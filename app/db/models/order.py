@@ -16,6 +16,7 @@ class PaymentMethod(str, enum.Enum):
     QR = "QR"
     CARD = "CARD"
     MANUAL = "MANUAL"
+    CASH = "CASH"
 
 class KdsStatus(str, enum.Enum):
     NOT_POSTED = "NOT_POSTED"
@@ -59,6 +60,8 @@ class Order(Base):
         nullable=False,
         index=True,
     )
+
+    store_id = Column(String, nullable=True, index=True)
 
     provider_code = Column(String, nullable=True)
     provider_txn_id = Column(String, nullable=True, index=True)

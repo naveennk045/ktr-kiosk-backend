@@ -7,6 +7,7 @@ from app.db.models.order import PaymentStatus, KdsStatus
 class QRInitiateRequest(BaseModel):
     order_id: str = Field(..., min_length=1)
     amount_paise: int = Field(..., ge=1)
+    store_id: str | None = None
 
 
 class QRInitiateResponse(BaseModel):
@@ -16,10 +17,12 @@ class QRInitiateResponse(BaseModel):
     expires_at: datetime | None = None
     provider: str = "PhonePe"
 
+
 class EDCInitiateRequest(BaseModel):
-    """Minimal EDC request - frontend only sends these two fields"""
+    """Minimal EDC request - frontend only sends these fields"""
     order_id: str = Field(..., min_length=1)
     amount_paise: int = Field(..., ge=1)
+    store_id: str = Field(..., min_length=1)
 
 
 class EDCInitiateResponse(BaseModel):
@@ -29,6 +32,13 @@ class EDCInitiateResponse(BaseModel):
     amount: int
     message: str
     provider: str = "PhonePe EDC"
+
+
+class CashInitiateRequest(BaseModel):
+    order_id: str = Field(..., min_length=1)
+    amount_paise: int = Field(..., ge=1)
+    store_id: str | None = None
+    pin: str = Field(..., min_length=1)
 
 
 

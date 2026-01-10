@@ -11,7 +11,7 @@ async def initiate_qr(
         service: PaymentService = Depends(get_payment_service)
 ):
     # Service returns the DB Order object
-    order = await service.initiate_qr(request.order_id, request.amount_paise)
+    order = await service.initiate_qr(request.order_id, request.amount_paise, request.store_id)
 
     # Map DB Order -> Pydantic Response
     return QRInitiateResponse(

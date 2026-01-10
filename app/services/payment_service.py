@@ -17,6 +17,7 @@ from app.services.order_service import OrderService
 from app.services.catalog_service import CatalogService
 from app.utils.rista import RistaClient
 from app.db.session import SessionLocal
+from app.db.models.edc_config import EdcConfig
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class PaymentService:
         self.order_service = order_service
 
     # --- QR LOGIC ---
-    async def initiate_qr(self, order_id: str, amount_paise: int):
+    async def initiate_qr(self, order_id: str, amount_paise: int, store_id: Optional[str] = None):
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
@@ -55,7 +56,7 @@ class PaymentService:
             "expiresIn": 180,
             "merchantId": settings.MERCHANT_ID,
             "merchantOrderId": order_id,
-            "storeId": getattr(settings, "STORE_ID", None),
+            "storeId": store_id if store_id else getattr(settings, "STORE_ID", None),
             "terminalId": getattr(settings, "TERMINAL_ID", None),
             "transactionId": order_id,
             "message": f"Payment for order {order_id}",
@@ -89,6 +90,7 @@ class PaymentService:
             code = payload.get("code")
 
             # 4. Update DB
+            order.store_id = store_id if store_id else getattr(settings, "STORE_ID", None)
             order.provider_resp = payload
             order.provider_code = code
             order.qr_string = qr_string
@@ -112,7 +114,7 @@ class PaymentService:
             raise HTTPException(status_code=502, detail="Payment Gateway Error")
 
     # --- EDC LOGIC ---
-    async def initiate_edc(self, order_id: str, amount_paise: int):
+    async def initiate_edc(self, order_id: str, amount_paise: int, store_id: str):
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
@@ -126,17 +128,25 @@ class PaymentService:
             logger.info(f"Returning existing EDC request for pending order {order_id}")
             return order
 
-        # 2. Build Payload
+        # Fetch Config from DB
+        stmt_config = select(EdcConfig).where(EdcConfig.store_id == store_id)
+        config_entry = (await self.db.execute(stmt_config)).scalar_one_or_none()
+
+        if not config_entry:
+            raise HTTPException(status_code=400, detail=f"No EDC configuration found for Store {store_id}")
+
+        merchant_id = config_entry.merchant_id
+
         # 2. Build Payload
         request_payload = {
-            "merchantId": settings.MERCHANT_ID,
-            "storeId": settings.STORE_ID,
+            "merchantId": merchant_id,
+            "storeId": store_id,
             "orderId": order_id,
             "transactionId": order_id,
             "amount": amount_paise,
             "paymentModes": ["CARD"],
             "integrationMappingType": "ONE_TO_ONE",
-            "terminalId": settings.TERMINAL_ID,
+            "terminalId": config_entry.terminal_id,
             "timeAllowedForHandoverToTerminalSeconds": 60,
             "autoAccept": True,
         }
@@ -162,6 +172,7 @@ class PaymentService:
             payload = resp.json()
 
             # 4. Update DB
+            order.store_id = store_id
             order.provider_resp = payload
             order.payment_method = PaymentMethod.CARD
             order.payment_status = PaymentStatus.PENDING
@@ -176,6 +187,35 @@ class PaymentService:
         except Exception as e:
             logger.error(f"EDC Init Failed: {e}", exc_info=True)
             raise HTTPException(status_code=502, detail="EDC Error")
+
+    # --- CASH LOGIC ---
+    async def initiate_cash(self, order_id: str, amount_paise: int, store_id: Optional[str] = None, pin: str = ""):
+        if pin != settings.CASH_PAYMENT_PIN:
+             raise HTTPException(status_code=401, detail="Invalid PIN for cash payment")
+
+        stmt = select(Order).where(Order.order_id == order_id)
+        order = (await self.db.execute(stmt)).scalar_one_or_none()
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        if order.payment_status == PaymentStatus.COMPLETED:
+            return order
+
+        # Update DB
+        order.store_id = store_id if store_id else getattr(settings, "STORE_ID", None)
+        order.payment_method = PaymentMethod.CASH
+        order.payment_status = PaymentStatus.COMPLETED
+        order.provider_txn_id = f"CASH-{order_id}"
+        order.provider_code = "SUCCESS"
+        order.provider_resp = {"message": "Cash payment recorded"}
+
+        await self.db.commit()
+        await self.db.refresh(order)
+
+        # Sync to KDS immediately
+        await self.order_service.sync_order_to_kds(order)
+
+        return order
 
     # --- STATUS CHECK LOGIC (Shared) ---
     async def check_status(self, order_id: str):

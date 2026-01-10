@@ -10,7 +10,11 @@ async def initiate_edc(
         request: EDCInitiateRequest,
         service: PaymentService = Depends(get_payment_service)
 ):
-    order = await service.initiate_edc(request.order_id, request.amount_paise)
+    order = await service.initiate_edc(
+        request.order_id,
+        request.amount_paise,
+        request.store_id
+    )
 
     # Manual Mapping for EDC Response
     provider_msg = "Request sent to Terminal"

@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # points to project ro
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env.local",
+        env_file=BASE_DIR / ".env.production",
         extra="ignore"
     )
 
@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     X_PROVIDER_ID: str
     PHONEPE_CALLBACK_URL: str
     EDC_ENDPOINT: str
+
+    # Cash Payment PIN
+    CASH_PAYMENT_PIN: str = "1234"
 
     # Rista credentials
     PI_KEY: str
