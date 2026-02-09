@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # points to project ro
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env.production",
+        env_file=BASE_DIR / ".env.local",
         extra="ignore"
     )
 
@@ -29,16 +29,24 @@ class Settings(BaseSettings):
     # Cash Payment PIN
     CASH_PAYMENT_PIN: str = "1234"
 
-    # Rista credentials
-    PI_KEY: str
-    SECRET_KEY: str
-    BRANCH_CODE: str
-    RISTA_BASE_URL: str
+    # # Rista credentials
+    # PI_KEY: str
+    # SECRET_KEY: str
+    # BRANCH_CODE: str
+    # RISTA_BASE_URL: str
 
-    APP_NAME: str = "API App"
+    APP_NAME: str = "KTR KIOSK"
     DEBUG_MODE: bool = False
 
     REDIS_HOST: str
+
+    PETPOOJA_ACCESS_TOKEN: str
+    PETPOOJA_API_SECRET: str
+    PETPOOJA_API_KEY: str
+    PETPOOJA_RESTAURANT_ID: str
+    PETPOOJA_FETCH_MENU_URL: str
+    PETPOOJA_CREATE_ORDER_URL: str
+    PETPOOJA_CALLBACK_URL: str
 
 
 settings = Settings()

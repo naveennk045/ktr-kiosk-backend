@@ -26,7 +26,7 @@ async def clear_catalog_cache(
     """
     Manually clear catalog cache for a specific channel.
     """
-    cache_key = f"{channel}_catalog_data"
+    cache_key = f"petpooja_catalog_data_{channel}"
     deleted = await redis_client.delete(cache_key)
 
     if deleted > 0:
@@ -52,8 +52,8 @@ async def get_cache_stats(
     Get statistics about cached catalogs.
     """
     try:
-        keys = await redis_client.keys("*_catalog_data")
-        cached_channels = [k.replace("_catalog_data", "") for k in keys]
+        keys = await redis_client.keys("petpooja_catalog_data_*")
+        cached_channels = [k.replace("petpooja_catalog_data_", "") for k in keys]
 
         return {
             "status": "success",

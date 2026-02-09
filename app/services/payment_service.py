@@ -15,7 +15,7 @@ from app.utils.phonepe import (
 from app.db.models.order import Order, PaymentStatus, KdsStatus, PaymentMethod
 from app.services.order_service import OrderService
 from app.services.catalog_service import CatalogService
-from app.utils.rista import RistaClient
+
 from app.db.session import SessionLocal
 from app.db.models.edc_config import EdcConfig
 
@@ -315,6 +315,8 @@ class PaymentService:
             await self.order_service.sync_order_to_kds(order)
 
 
+from app.utils.petpooja import PetpoojaClient
+
 # --- BACKGROUND TASK ---
 
 async def process_webhook_in_background(
@@ -331,9 +333,9 @@ async def process_webhook_in_background(
     logger.info(f"Background webhook task running for order {merchant_order_id}...")
 
     async with SessionLocal() as db:
-        rista_client = RistaClient(http_client)
-        catalog_service = CatalogService(redis_client, rista_client)
-        order_service = OrderService(db, catalog_service, rista_client)
+        petpooja_client = PetpoojaClient(http_client)
+        catalog_service = CatalogService(redis_client, petpooja_client)
+        order_service = OrderService(db, catalog_service, petpooja_client)
         payment_service = PaymentService(db, http_client, redis_client, order_service)
 
         await payment_service.handle_webhook(merchant_order_id, code, payload)

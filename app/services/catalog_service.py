@@ -1,18 +1,22 @@
 import json
 import logging
 import redis.asyncio as redis
-from typing import Dict, Any
-from app.utils.rista import RistaClient
+from typing import Dict, Any, List
+from app.utils.petpooja import PetpoojaClient
 
 logger = logging.getLogger(__name__)
 
 class CatalogService:
-    def __init__(self, redis_client: redis.Redis, rista_client: RistaClient):
+    def __init__(self, redis_client: redis.Redis, petpooja_client: PetpoojaClient):
         self.redis = redis_client
-        self.rista = rista_client
+        self.petpooja = petpooja_client
 
     async def get_catalog(self, channel: str) -> Dict[str, Any]:
-        cache_key = f"{channel}_catalog_data"
+        """
+        Fetches catalog from Petpooja and maps it to the internal format.
+        'channel' argument is kept for compatibility but might not be used if Petpooja doesn't support it directly.
+        """
+        cache_key = f"petpooja_catalog_data_{channel}"
 
         # 1. Check cache first
         try:
@@ -22,11 +26,14 @@ class CatalogService:
         except Exception as e:
             logger.error(f"Cache read error for channel '{channel}': {e}", exc_info=True)
 
-    # 2. If not in cache, fetch from Rista
-        logger.info(f"Cache miss. Fetching fresh catalog for channel '{channel}' from Rista...")
-        catalog_data = await self.rista.fetch_catalog_raw(channel)
+        # 2. If not in cache, fetch from Petpooja
+        logger.info(f"Cache miss. Fetching fresh catalog from Petpooja...")
+        pp_response = await self.petpooja.fetch_menu()
 
-        # Inject static category images
+        catalog_data = self._map_petpooja_response(pp_response)
+
+        # Inject static category images (Legacy Logic - IDs need update)
+        # TODO: Update these IDs with actual Petpooja Category IDs from the fetched menu
         CATEGORY_IMAGES = {
             "6868ca5dc29c8ed4d3c98dd5": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032823/Idli_oh6wpb.jpg",
             "68e778dd0c42e107fdf5cf3f": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767786181/360_F_786760607_IwcScz3k7Efj42i1S7mnewhWQXrhAa0o_dnjnqq.jpg",
@@ -40,27 +47,19 @@ class CatalogService:
         if catalog_data and "categories" in catalog_data:
             # 1. Inject Images
             for category in catalog_data["categories"]:
-                cat_id = category.get("categoryId")
+                cat_id = str(category.get("categoryId"))
                 if cat_id in CATEGORY_IMAGES:
                     category["imageURL"] = CATEGORY_IMAGES[cat_id]
+                # Default placeholder if from Petpooja response (if they ever add it)
+                elif category.get("category_image_url"):
+                     category["imageURL"] = category.get("category_image_url")
 
-            # 2. Sort Categories
-            CATEGORY_ORDER = [
-                "6868ca5dc29c8ed4d3c98dd3",  # Davanagere Dose
-                "6868ca5dc29c8ed4d3c98dd4",  # Bengaluru Dose
-                "6868ca5dc29c8ed4d3c98dd5",  # Idli
-                "6868ca5dc29c8ed4d3c98dd7",  # Rice
-                "6868ca5dc29c8ed4d3c98dd6",  # Wada/Snacks
-                "6868ca5dc29c8ed4d3c98dd8",  # Coffee
-                "68e778dd0c42e107fdf5cf3f",  # BEVERAGE
-            ]
 
+            # 2. Sort Categories (Logic kept, but requires valid IDs to work)
+            # For now, we sort by 'categoryrank' if available from Petpooja
             def get_sort_index(cat):
-                cid = cat.get("categoryId")
-                try:
-                    return CATEGORY_ORDER.index(cid)
-                except ValueError:
-                    return 999  # Put unknown categories at the end
+                rank = cat.get("categoryrank")
+                return int(rank) if rank is not None else 999
 
             catalog_data["categories"].sort(key=get_sort_index)
 
@@ -73,7 +72,120 @@ class CatalogService:
 
         return catalog_data
 
-    # --- KDS Helper Methods (Moved from rista_utils) ---
+    def _map_petpooja_response(self, pp_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Maps Petpooja 'Fetch Menu' JSON to Internal Catalog Format.
+        Matches the legacy 'Rista' structure for frontend compatibility.
+        """
+
+        # Constants for Tag IDs (Legacy IDs preserved for consistency)
+        TAG_VEG_ID = "6868c0ab6065bace3cd952b7"
+        TAG_NON_VEG_ID = "6868c0ab6065bace3cd952b8"
+        TAG_EGG_ID = "6868c0ab6065bace3cd952bb"
+
+        # Define available Item Tags
+        item_tags = [
+            {"itemTagId": TAG_VEG_ID, "name": "Vegetarian"},
+            {"itemTagId": TAG_NON_VEG_ID, "name": "Non-vegetarian"},
+            {"itemTagId": TAG_EGG_ID, "name": "Egg"},
+            # Add others if needed, but these are the core ones derived from attributes
+        ]
+
+        mapped = {
+            "categories": [],
+            "schedules": [],
+            "itemTags": item_tags,
+            "charges": [], # Empty for now, Petpooja handles charges at order level usually
+            "items": [],
+            "optionSets": [],
+            "discounts": [],
+            "memberships": [],
+            "taxTypes": []
+        }
+
+        # 1. Map Taxes
+        for tx in pp_data.get("taxes", []):
+            mapped["taxTypes"].append({
+                "taxTypeId": str(tx.get("taxid")),
+                "name": tx.get("taxname"),
+                "percentage": float(tx.get("tax", 0.0)),
+                "type": tx.get("taxtype")
+            })
+
+        # 2. Map Categories
+        for cat in pp_data.get("categories", []):
+            mapped["categories"].append({
+                "categoryId": str(cat.get("categoryid")),
+                "name": cat.get("categoryname"),
+                "subCategories": [], # Legacy field
+                "imageURL": cat.get("category_image_url", ""),
+                "categoryrank": cat.get("categoryrank"),
+                "active": cat.get("active")
+            })
+
+        # 3. Map Items (and Variations)
+        for item in pp_data.get("items", []):
+            if str(item.get("active")) != "1":
+                continue
+
+            tax_ids = item.get("item_tax", "").split(",") if item.get("item_tax") else []
+            tax_ids = [t.strip() for t in tax_ids if t.strip()]
+
+            # Determine Tag IDs based on attribute
+            # 1 = Veg, 2 = Non-Veg, 3 = Egg (Common convention, adjusting as needed)
+            attr_id = str(item.get("item_attributeid"))
+            current_tag_ids = []
+            if attr_id == "1":
+                current_tag_ids.append(TAG_VEG_ID)
+            elif attr_id == "2":
+                current_tag_ids.append(TAG_NON_VEG_ID)
+            elif attr_id == "3":
+                current_tag_ids.append(TAG_EGG_ID)
+
+            # Base Item
+            mapped_item = {
+                "itemId": str(item.get("itemid")),
+                "skuCode": str(item.get("itemid")),
+                "itemName": item.get("itemname"),
+                "price": float(item.get("price", 0.0)),
+                "taxTypeIds": tax_ids,
+                "categoryId": str(item.get("item_categoryid")),
+                "isPriceIncludesTax": False, # Petpooja usually sends exclusive prices
+                "status": "Active",
+                "description": item.get("itemdescription", ""),
+                "type": "Simple", # Legacy "type" seems to be "Simple" for items, not Veg/NonVeg
+                "itemTagIds": current_tag_ids,
+                "chargeIds": [],
+                "scheduleIds": [],
+                "measuringUnit": "ea",
+                "itemNature": "Service",
+                "denyDiscount": False,
+                "imageURL": item.get("item_image_url", ""),
+                "optionSetIds": []
+            }
+
+            # Check for Variations
+            variations = item.get("variation", [])
+            if not variations:
+                # No variations, add base item
+                mapped["items"].append(mapped_item)
+            else:
+                # Flatten variations
+                for var in variations:
+                    if str(var.get("active")) != "1":
+                        continue
+
+                    var_item = mapped_item.copy()
+                    var_item["itemId"] = str(var.get("id"))
+                    var_item["skuCode"] = str(var.get("id"))
+                    var_item["itemName"] = f"{item.get('itemname')} ({var.get('name')})"
+                    var_item["price"] = float(var.get("price", 0.0))
+                    # Inherit taxes and tags from parent
+                    mapped["items"].append(var_item)
+
+        return mapped
+
+    # --- KDS Helper Methods ---
 
     def money(self, x: float) -> float:
         from decimal import Decimal, ROUND_HALF_UP
@@ -81,6 +193,7 @@ class CatalogService:
 
     def find_item(self, catalog_items: list, sku: str | None = None) -> Dict | None:
         for it in catalog_items:
+            # Check status logic? Already filtered active in map, but keep safe
             if it.get("status") != "Active":
                 continue
             if sku is not None and str(it.get("skuCode")) == str(sku):
@@ -119,6 +232,7 @@ class CatalogService:
             total_tax_excluded += amount_excluded
 
             taxes.append({
+                "id": str(tax_id),
                 "name": meta["name"],
                 "percentage": rate,
                 "saleAmount": self.money(item_amount),
@@ -128,6 +242,8 @@ class CatalogService:
             })
 
         item_total_amount = self.money(item_amount)
+        # For legacy compatibility with KDS structure, we keep this,
+        # though build_sale_item typically preps for the syncing payload.
         line = {
             "shortName": src_item["itemName"],
             "skuCode": src_item["skuCode"],
