@@ -48,5 +48,13 @@ class Settings(BaseSettings):
     PETPOOJA_CREATE_ORDER_URL: str
     PETPOOJA_CALLBACK_URL: str
 
+    PINELABS_EDC_BASE_URL: str
+    PINELABS_EDC_MERCHANT_ID: str
+    PINELABS_EDC_CLIENT_ID: str
+    PINELABS_EDC_API_SECRET: str
+    PINELABS_STORE_ID: str
+    PINELABS_EDC_SECURITY_TOKEN: str
+    PINELABS_EDC_USER_ID: str
+
 
 settings = Settings()

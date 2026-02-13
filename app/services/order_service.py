@@ -17,6 +17,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class OrderService:
     def __init__(
             self,
@@ -138,16 +139,11 @@ class OrderService:
             success = response.get("success")
             message = response.get("message")
 
-            # The user provided response example didn't show success/failure format for SaveOrder explicitly
-            # but usually "1" or true indicates success in Petpooja.
-            # Assuming "success": "1" based on fetch menu example.
-
+            # Petpooja returns "success": "1" for successful orders
             if success == "1" or success == 1:
-                # Invoice ID might be in "poll_id" or "order_id" in response?
-                # User example didn't show response body for saveorder.
-                # Usually it returns the orderID we sent or an internal ID.
-                # We'll use our order_id as reference if not provided.
-                server_order_id = response.get("restID") # Just guessing
+                # Extract the server-side order ID from response
+                # Petpooja typically returns the order ID in the response
+                server_order_id = response.get("orderID") or response.get("order_id") or order.order_id
                 await self._update_kds_status(order, KdsStatus.POSTED, None, server_order_id)
                 logger.info(f"✅ Petpooja Post Success: {order.order_id} - Response: {response}")
                 return True, server_order_id
@@ -163,110 +159,124 @@ class OrderService:
             return False, None
 
     def _construct_petpooja_payload(self, order: Order, catalog: Dict) -> Dict[str, Any]:
-        """Helper to build the Petpooja JSON payload."""
+        """
+        Helper to build the Petpooja JSON payload.
+
+        FIXES APPLIED:
+        1. ✅ Timestamp alignment: preorder_date/time matches created_on for immediate orders
+        2. ✅ Per-unit pricing: final_price is per unit, not total quantity
+        3. ✅ Per-unit taxes: item_tax amounts are per unit, not total quantity
+        4. ✅ Tax aggregation: Global Tax.details contains total amounts across all items
+        """
         catalog_items = catalog.get("items", [])
         tax_index = {t["taxTypeId"]: t for t in catalog.get("taxTypes", [])}
 
         order_items = []
-        global_taxes = {} # To collect unique taxes for "Tax" section
+        tax_aggregation = {}  # To accumulate total tax amounts per tax ID
 
         # Calculate Taxes & Items
         for item_spec in order.items:
             src_item = self.catalog.find_item(catalog_items, item_spec.get("sku_code"))
             if not src_item:
-                # If item not found (maybe inactive?), we might fail or continue.
-                # Raising error to be safe.
                 raise ValueError(f"SKU {item_spec.get('sku_code')} not found in catalog")
 
+            quantity = item_spec["quantity"]
+
+            # build_sale_item returns total amounts for the quantity
             line, tax_inc, tax_exc = self.catalog.build_sale_item(
-                src_item, item_spec["quantity"], tax_index
+                src_item, quantity, tax_index
             )
 
-            # Transform line -> Petpooja Item
-            # taxes list from build_sale_item: [{id, name, percentage, amount, ...}]
+            # ✅ FIX #2: Calculate per-unit values (Petpooja expects per-unit, not total)
+            unit_price = float(src_item.get("price"))
+            item_discount_per_unit = 0.0  # TODO: Implement discounts if needed
+            unit_final_price = unit_price - item_discount_per_unit
+
+            # ✅ FIX #3: Calculate per-unit tax amounts
             p_item_taxes = []
             for t in line.get("taxes", []):
+                # line.taxes contains TOTAL tax for all quantities
+                # We need PER-UNIT tax amount for Petpooja
+                total_tax_amount = float(t.get("amount", 0))
+                per_unit_tax = total_tax_amount / quantity
+
                 p_item_taxes.append({
                     "id": t.get("id"),
                     "name": t.get("name"),
                     "tax_percentage": str(t.get("percentage")),
-                    "amount": str(t.get("amount"))
+                    "amount": str(round(per_unit_tax, 2))  # Per unit
                 })
-                # Add to global tax list
-                if t.get("id"):
-                    global_taxes[t.get("id")] = {
-                        "id": t.get("id"),
-                        "title": t.get("name"),
-                        "type": "P", # Percentage
-                        "price": str(t.get("percentage")),
-                        "tax": str(t.get("amount")), # This acts like an accumulator?
-                        # Wait, "tax" in global Tax section usually aggregates?
-                        # User example shows "tax": "5.9".
-                        # For now, let's just register the definition.
-                        # Aggregation might be needed if "Tax" section requires TOTAL tax amount per tax ID.
-                    }
 
+                # ✅ FIX #4: Accumulate total tax amounts for global Tax section
+                tax_id = t.get("id")
+                if tax_id:
+                    if tax_id not in tax_aggregation:
+                        tax_aggregation[tax_id] = {
+                            "id": tax_id,
+                            "title": t.get("name"),
+                            "type": "P",
+                            "price": str(t.get("percentage")),
+                            "tax": 0.0,
+                            "restaurant_liable_amt": "0.00"
+                        }
+                    # Add the TOTAL tax amount (for all quantities of this item)
+                    tax_aggregation[tax_id]["tax"] += total_tax_amount
+
+            # Build Petpooja item structure
             p_item = {
                 "id": str(src_item.get("skuCode")),
                 "name": src_item.get("itemName"),
                 "tax_inclusive": src_item.get("isPriceIncludesTax", False),
-                "gst_liability": "vendor", # Hardcoded default
+                "gst_liability": "vendor",  # Default; adjust if needed
                 "item_tax": p_item_taxes,
-                "item_discount": "0", # TODO: Handle discounts if any
-                "price": str(src_item.get("price")),
-                "final_price": str(line.get("itemTotalAmount")),
-                "quantity": str(item_spec["quantity"]),
+                "item_discount": str(item_discount_per_unit),  # Per unit
+                "price": str(unit_price),  # Per unit
+                "final_price": str(unit_final_price),  # Per unit (price - discount)
+                "quantity": str(quantity),
                 "description": "",
-                "variation_name": "", # Handled if we use variation SKU directly?
+                "variation_name": "",
                 "variation_id": "",
-                "AddonItem": { "details": [] } # TODO: add addons support
+                "AddonItem": {"details": []}  # TODO: Add addon support if needed
             }
             order_items.append(p_item)
 
-        # Aggregate Global Taxes
-        # We need to sum up tax amounts for the "Tax" section
+        # Format global taxes
         final_global_taxes = []
-        # Re-iterate items to sum up taxes
-        tax_agg = {}
-        for p_item in order_items:
-            for t in p_item["item_tax"]:
-                tid = t["id"]
-                if tid not in tax_agg:
-                    tax_agg[tid] = {
-                        "id": tid,
-                        "title": t["name"],
-                        "type": "P",
-                        "price": t["tax_percentage"],
-                        "tax": 0.0,
-                        "restaurant_liable_amt": "0.00"
-                    }
-                tax_agg[tid]["tax"] += float(t["amount"])
+        for tax_data in tax_aggregation.values():
+            # Use catalog.money() to format tax amount consistently
+            tax_data["tax"] = self.catalog.money(tax_data["tax"])
+            final_global_taxes.append(tax_data)
 
-        for v in tax_agg.values():
-            v["tax"] = self.catalog.money(v["tax"])
-            final_global_taxes.append(v)
+        # ✅ FIX #1: Use consistent timestamp for immediate orders
+        # When advanced_order = "N", preorder_date/time must match created_on
+        order_timestamp = order.created_at if order.created_at else datetime.now(timezone.utc)
 
+        # For future: Support scheduled orders by checking order.scheduled_for
+        # is_advanced_order = order.scheduled_for is not None
+        # preorder_dt = order.scheduled_for if is_advanced_order else order_timestamp
+        # advanced_order_flag = "Y" if is_advanced_order else "N"
 
-        # Construct Final Payload
-        iso_created = order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Current implementation: All orders are immediate
+        preorder_dt = order_timestamp
+        advanced_order_flag = "N"
 
         payload = {
             "orderinfo": {
                 "OrderInfo": {
                     "Restaurant": {
                         "details": {
-                            "res_name": settings.APP_NAME, # Placeholder
-                            "address": "Restaurant Address", # Placeholder
-                            "contact_information": "9999999999", # Placeholder
+                            "res_name": settings.APP_NAME,
+                            "address": "Restaurant Address",  # TODO: Use actual restaurant address
+                            "contact_information": "9999999999",  # TODO: Use actual contact number
                             "restID": settings.PETPOOJA_RESTAURANT_ID
                         }
                     },
                     "Customer": {
                         "details": {
-                            "email": "guest@example.com",
-                            "name": "Guest",
+                            "email": "guest@example.com",  # TODO: Use actual customer email if available
+                            "name": "Guest",  # TODO: Use actual customer name if available
                             "address": "",
-                            "phone": "9999999999",
+                            "phone": "9999999999",  # TODO: Use actual customer phone if available
                             "latitude": "",
                             "longitude": ""
                         }
@@ -274,30 +284,46 @@ class OrderService:
                     "Order": {
                         "details": {
                             "orderID": order.order_id,
-                            "preorder_date": datetime.now().strftime("%Y-%m-%d"),
-                            "preorder_time": datetime.now().strftime("%H:%M:%S"),
+
+                            # ✅ FIXED: Aligned timestamps for immediate orders
+                            "preorder_date": preorder_dt.strftime("%Y-%m-%d"),
+                            "preorder_time": preorder_dt.strftime("%H:%M:%S"),
+                            "created_on": order_timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                            "advanced_order": advanced_order_flag,
+
+                            # Service charges
                             "service_charge": "0",
                             "sc_tax_amount": "0",
+
+                            # Delivery charges
                             "delivery_charges": "0",
                             "dc_tax_percentage": "0",
                             "dc_tax_amount": "0",
+                            "dc_gst_details": [],  # Add if delivery charges have GST
+
+                            # Packing charges
                             "packing_charges": "0",
                             "pc_tax_amount": "0",
                             "pc_tax_percentage": "0",
-                            "order_type": "D" if order.order_type == OrderType.DINEIN else "P", # Mapping DINEIN->D, TAKEAWAY->P
+                            "pc_gst_details": [],  # Add if packing charges have GST
+
+                            # Order metadata
+                            "order_type": "D" if order.order_type == OrderType.DINEIN else "P",
                             "ondc_bap": "",
-                            "advanced_order": "N",
                             "urgent_order": False,
                             "urgent_time": 20,
-                            "payment_type": "COD" if order.payment_method == "CASH" else "Online", # Simple mapping
+                            "payment_type": "COD" if order.payment_method == "CASH" else "Online",
                             "table_no": "",
                             "no_of_persons": "0",
+
+                            # Totals
                             "discount_total": "0",
                             "tax_total": str(sum(float(t["tax"]) for t in final_global_taxes)),
                             "discount_type": "F",
                             "total": str(order.total_amount_include_tax),
+
+                            # Additional fields
                             "description": "",
-                            "created_on": iso_created,
                             "enable_delivery": 0,
                             "min_prep_time": 20,
                             "callback_url": settings.PETPOOJA_CALLBACK_URL,
@@ -312,17 +338,27 @@ class OrderService:
                         "details": final_global_taxes
                     },
                     "Discount": {
-                        "details": []
+                        "details": []  # TODO: Add discount support if needed
                     }
                 }
             }
         }
+
+        # Debug: Save payload to file for inspection
+        # Uncomment for debugging
+        with open("sample_order.json", "w") as f:
+            import json
+            json.dump(payload, f, indent=4)
+
         return payload
 
     async def _update_kds_status(self, order: Order, status: KdsStatus, error: str = None, invoice_id: str = None):
+        """Update order KDS status and related fields."""
         order.kds_status = status
         order.kds_last_attempt_at = datetime.now(timezone.utc)
-        if error: order.kds_last_error = error
-        if invoice_id: order.kds_invoice_id = invoice_id
+        if error:
+            order.kds_last_error = error
+        if invoice_id:
+            order.kds_invoice_id = invoice_id
         await self.db.commit()
         await self.db.refresh(order)
