@@ -143,7 +143,7 @@ class PaymentService:
         request_payload = {
             "TransactionNumber": order_id,
             "SequenceNumber": 1,
-            "AllowedPaymentMode": "1",
+            "AllowedPaymentMode": "1 | 10",
             "ClientID": settings.PINELABS_EDC_CLIENT_ID,
             "Amount": str(amount_paise),
             "UserID": settings.PINELABS_EDC_USER_ID,
