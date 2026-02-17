@@ -129,7 +129,7 @@ class PaymentService:
             logger.info(f"Returning existing EDC request for pending order {order_id}")
             return order
 
-        # Pine Labs URL
+        # Pine Labs URLhttps://www.plutuscloudservice.in:8201/API
         base_url = settings.PINELABS_EDC_BASE_URL.rstrip("/")
         url = f"{base_url}/api/CloudBasedIntegration/V1/UploadBilledTransaction"
 
@@ -289,16 +289,20 @@ class PaymentService:
             new_status = order.payment_status
 
             # Adjust mapping based on actual API behavior.
-            # For now, if ResponseCode == 0, it's SUCCESS.
             if str(response_code) == "0":
                  new_status = PaymentStatus.COMPLETED
+            elif str(response_code) in ["1001", "1002"]:
+                 # 1001 = TXN UPLOADED, 1002 = PROCESSING
+                 # Treat as PENDING, do not fail.
+                 new_status = PaymentStatus.PENDING
             elif str(response_code) != "0" and response_code is not None:
-                 # If explicit failure code
+                 # If explicit failure code (e.g. 1003, 1004)
                  new_status = PaymentStatus.FAILED
 
-            if new_status != order.payment_status:
+            # Always update provider response and code for debugging/tracking
+            if new_status != order.payment_status or str(response_code) != str(order.provider_code):
                 order.payment_status = new_status
-                order.provider_resp = data # Update with latest status response
+                order.provider_resp = data
                 order.provider_code = str(response_code)
                 await self.db.commit()
 
