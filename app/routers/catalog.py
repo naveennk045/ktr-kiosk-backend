@@ -1,7 +1,8 @@
 import logging
 import redis.asyncio as redis
 from fastapi import APIRouter, Depends
-from app.core.dependencies import get_catalog_service, get_redis_client
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.dependencies import get_catalog_service, get_redis_client, get_db
 from app.services.catalog_service import CatalogService
 
 logger = logging.getLogger(__name__)
@@ -11,12 +12,13 @@ router = APIRouter()
 @router.get("/")
 async def get_catalog(
         channel: str,
-        service: CatalogService = Depends(get_catalog_service)
+        service: CatalogService = Depends(get_catalog_service),
+        db: AsyncSession = Depends(get_db)
 ):
     """
     Get catalog for a specific channel.
     """
-    return await service.get_catalog(channel)
+    return await service.get_catalog(channel, db)
 
 @router.delete("/cache")
 async def clear_catalog_cache(

@@ -11,7 +11,7 @@ class CatalogService:
         self.redis = redis_client
         self.petpooja = petpooja_client
 
-    async def get_catalog(self, channel: str) -> Dict[str, Any]:
+    async def get_catalog(self, channel: str, db: Any = None) -> Dict[str, Any]:
         """
         Fetches catalog from Petpooja and maps it to the internal format.
         'channel' argument is kept for compatibility but might not be used if Petpooja doesn't support it directly.
@@ -26,22 +26,35 @@ class CatalogService:
         except Exception as e:
             logger.error(f"Cache read error for channel '{channel}': {e}", exc_info=True)
 
-        # 2. If not in cache, fetch from Petpooja
-        logger.info(f"Cache miss. Fetching fresh catalog from Petpooja...")
+        # 2. If not in cache, check Database (Petpooja Push Menu)
+        if db:
+            from app.db.models.menu import Menu
+            from sqlalchemy import select
+
+            logger.info(f"Cache miss. Checking Database for latest pushed menu...")
+            try:
+                # Assuming 'petpooja' provider and we take the latest
+                result = await db.execute(select(Menu).filter(Menu.provider == "petpooja").order_by(Menu.id.desc()).limit(1))
+                latest_menu = result.scalar_one_or_none()
+
+                if latest_menu and latest_menu.data:
+                    logger.info("Found menu in Database. Processing and caching...")
+                    # We reuse process_and_cache_menu but since it also maps, we can just use it or call map directly.
+                    # process_and_cache_menu also updates Redis, which is good.
+                    return await self.process_and_cache_menu(latest_menu.data, channel)
+            except Exception as e:
+                logger.error(f"Database read error: {e}", exc_info=True)
+
+        # 3. If not in DB or DB failed, fetch from Petpooja API (Legacy/Fallback)
+        # Note: This might be deprecated, but kept as final fallback.
+        logger.info(f"Cache/DB miss. Fetching fresh catalog from Petpooja API...")
         pp_response = await self.petpooja.fetch_menu()
 
         catalog_data = self._map_petpooja_response(pp_response)
 
-        # Inject static category images (Legacy Logic - IDs need update)
         # TODO: Update these IDs with actual Petpooja Category IDs from the fetched menu
         CATEGORY_IMAGES = {
-            "6868ca5dc29c8ed4d3c98dd5": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032823/Idli_oh6wpb.jpg",
-            "68e778dd0c42e107fdf5cf3f": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767786181/360_F_786760607_IwcScz3k7Efj42i1S7mnewhWQXrhAa0o_dnjnqq.jpg",
-            "6868ca5dc29c8ed4d3c98dd4": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Davanagere_Dose_rsju7o.jpg",
-            "6868ca5dc29c8ed4d3c98dd8": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",
-            "6868ca5dc29c8ed4d3c98dd3": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",
-            "6868ca5dc29c8ed4d3c98dd7": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032825/Rice_j5hjnu.jpg",
-            "6868ca5dc29c8ed4d3c98dd6": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg"
+
         }
 
         if catalog_data and "categories" in catalog_data:
@@ -69,6 +82,51 @@ class CatalogService:
             logger.info(f"Successfully cached catalog for channel '{channel}'.")
         except Exception as e:
             logger.warning(f"Cache write error for channel '{channel}': {e}", exc_info=True)
+
+        return catalog_data
+
+    async def process_and_cache_menu(self, menu_data: Dict[str, Any], channel: str = "default") -> Dict[str, Any]:
+        """
+        Process the raw menu data from Petpooja and cache the result.
+        This is called by the webhook.
+        """
+        logger.info(f"Processing and caching menu update for channel '{channel}'")
+
+        # Map raw data to internal format
+        catalog_data = self._map_petpooja_response(menu_data)
+
+        # Inject Images & Sort (Reuse logic - TODO: Refactor common logic)
+        CATEGORY_IMAGES = {
+            "6868ca5dc29c8ed4d3c98dd5": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032823/Idli_oh6wpb.jpg",
+            "68e778dd0c42e107fdf5cf3f": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767786181/360_F_786760607_IwcScz3k7Efj42i1S7mnewhWQXrhAa0o_dnjnqq.jpg",
+            "6868ca5dc29c8ed4d3c98dd4": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Davanagere_Dose_rsju7o.jpg",
+            "6868ca5dc29c8ed4d3c98dd8": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",
+            "6868ca5dc29c8ed4d3c98dd3": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",
+            "6868ca5dc29c8ed4d3c98dd7": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032825/Rice_j5hjnu.jpg",
+            "6868ca5dc29c8ed4d3c98dd6": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg"
+        }
+
+        if catalog_data and "categories" in catalog_data:
+            for category in catalog_data["categories"]:
+                cat_id = str(category.get("categoryId"))
+                if cat_id in CATEGORY_IMAGES:
+                    category["imageURL"] = CATEGORY_IMAGES[cat_id]
+                elif category.get("category_image_url"):
+                     category["imageURL"] = category.get("category_image_url")
+
+            def get_sort_index(cat):
+                rank = cat.get("categoryrank")
+                return int(rank) if rank is not None else 999
+            catalog_data["categories"].sort(key=get_sort_index)
+
+        # Cache
+        cache_key = f"petpooja_catalog_data_{channel}"
+        try:
+            # Set with long expiry (e.g. 24 hours) as we rely on webhook pushes now
+            await self.redis.set(cache_key, json.dumps(catalog_data), ex=86400)
+            logger.info(f"Updated cache for channel '{channel}' via webhook.")
+        except Exception as e:
+            logger.error(f"Failed to update cache for channel '{channel}': {e}", exc_info=True)
 
         return catalog_data
 
