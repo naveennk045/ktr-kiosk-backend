@@ -120,6 +120,16 @@ class CatalogService:
             catalog_data["categories"].sort(key=get_sort_index)
 
         # Cache
+        # 1. Clear existing cache for ALL channels to ensure consistency
+        try:
+            keys = await self.redis.keys("petpooja_catalog_data_*")
+            if keys:
+                await self.redis.delete(*keys)
+                logger.info(f"Cleared {len(keys)} catalog cache keys.")
+        except Exception as e:
+            logger.error(f"Error clearing legacy cache keys: {e}", exc_info=True)
+
+        # 2. Set new cache for this channel
         cache_key = f"petpooja_catalog_data_{channel}"
         try:
             # Set with long expiry (e.g. 24 hours) as we rely on webhook pushes now
