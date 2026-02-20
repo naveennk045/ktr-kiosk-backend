@@ -262,7 +262,7 @@ class PaymentService:
         headers = {"Content-Type": "application/json"}
 
         try:
-            resp = await self.http_client.post(url, json=payload, headers=headers, timeout=30.0)
+            resp = await self.http_client.post(url, json=payload, headers=headers, timeout=50.0)
             data = resp.json() # Pine labs returns JSON directly
 
             # Logic to determine status from Pine Labs response
