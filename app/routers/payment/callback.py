@@ -29,7 +29,6 @@ async def handle_callback(
     if not base64_payload:
         raise HTTPException(status_code=400, detail="Missing response payload")
 
-    # Verify Signature using utils
     calculated_hash = verify_phonepe_callback_hash(base64_payload)
     if calculated_hash != x_verify:
         logger.warning(f"Signature verification failed. Expected: {calculated_hash}, Got: {x_verify}")
@@ -41,7 +40,6 @@ async def handle_callback(
     except Exception:
         raise HTTPException(status_code=400, detail="Decoding failed")
 
-    # Pass logic to background task
     data = payload.get("data", {})
     merchant_order_id = data.get("merchantOrderId")
     code = payload.get("code")

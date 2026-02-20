@@ -21,6 +21,7 @@ from app.db.models.edc_config import EdcConfig
 
 logger = logging.getLogger(__name__)
 
+
 class PaymentService:
     def __init__(
             self,
@@ -41,16 +42,13 @@ class PaymentService:
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
 
-        # 1. Reuse existing
         if order.payment_status == PaymentStatus.COMPLETED:
             return order
 
-        # Return existing QR if pending
         if order.payment_status == PaymentStatus.PENDING and order.qr_string:
             logger.info(f"Returning existing QR for pending order {order_id}")
             return order
 
-        # 2. Build Payload
         request_payload = {
             "amount": amount_paise,
             "expiresIn": 180,
@@ -63,7 +61,6 @@ class PaymentService:
         }
         request_payload = {k: v for k, v in request_payload.items() if v is not None}
 
-        # 3. Hash & Call
         base64_payload = make_base64(request_payload)
         endpoint = settings.QR_INIT_ENDPOINT
         x_verify = compute_x_verify_for_endpoint(base64_payload, endpoint, settings.SALT_KEY, settings.SALT_KEY_INDEX)
@@ -86,10 +83,10 @@ class PaymentService:
             payload = resp.json()
 
             data_node = payload.get("data", {}) or {}
-            qr_string = data_node.get("qrCode") or data_node.get("qrString") or data_node.get("instrumentResponse", {}).get("qrData")
+            qr_string = data_node.get("qrCode") or data_node.get("qrString") or data_node.get("instrumentResponse",
+                                                                                              {}).get("qrData")
             code = payload.get("code")
 
-            # 4. Update DB
             order.store_id = store_id if store_id else getattr(settings, "STORE_ID", None)
             order.provider_resp = payload
             order.provider_code = code
@@ -124,27 +121,24 @@ class PaymentService:
         if order.payment_status == PaymentStatus.COMPLETED:
             return order
 
-        # Return existing EDC response if pending
         if order.payment_status == PaymentStatus.PENDING and order.provider_resp:
             logger.info(f"Returning existing EDC request for pending order {order_id}")
             return order
 
-        # Pine Labs URLhttps://www.plutuscloudservice.in:8201/API
         base_url = settings.PINELABS_EDC_BASE_URL.rstrip("/")
         url = f"{base_url}/api/CloudBasedIntegration/V1/UploadBilledTransaction"
 
-        # Try to parse MerchantID as int if possible, else string
         try:
             merchant_id = int(settings.PINELABS_EDC_MERCHANT_ID)
         except ValueError:
             merchant_id = settings.PINELABS_EDC_MERCHANT_ID
 
-        # Build Payload
         request_payload = {
             "TransactionNumber": order_id,
             "SequenceNumber": 1,
             "AllowedPaymentMode": "1",
             "ClientID": settings.PINELABS_EDC_CLIENT_ID,
+            # "ClientID": store_id,  # store_id is passed as the device's ClientID
             "Amount": str(amount_paise),
             "UserID": settings.PINELABS_EDC_USER_ID,
             "MerchantID": merchant_id,
@@ -166,10 +160,8 @@ class PaymentService:
             payload = resp.json()
             logger.info(f"Pine Labs Response: {payload}")
 
-            # Extract PlutusTransactionReferenceID if available
             plutus_ref_id = payload.get("PlutusTransactionReferenceID")
 
-            # Update DB
             order.store_id = store_id
             order.provider_resp = payload
             order.provider_reference_id = str(plutus_ref_id) if plutus_ref_id else None
@@ -191,7 +183,7 @@ class PaymentService:
     # --- CASH LOGIC ---
     async def initiate_cash(self, order_id: str, amount_paise: int, store_id: Optional[str] = None, pin: str = ""):
         if pin != settings.CASH_PAYMENT_PIN:
-             raise HTTPException(status_code=401, detail="Invalid PIN for cash payment")
+            raise HTTPException(status_code=401, detail="Invalid PIN for cash payment")
 
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
@@ -201,7 +193,6 @@ class PaymentService:
         if order.payment_status == PaymentStatus.COMPLETED:
             return order
 
-        # Update DB
         order.store_id = store_id if store_id else getattr(settings, "STORE_ID", None)
         order.payment_method = PaymentMethod.CASH
         order.payment_status = PaymentStatus.COMPLETED
@@ -212,7 +203,6 @@ class PaymentService:
         await self.db.commit()
         await self.db.refresh(order)
 
-        # Sync to KDS immediately
         await self.order_service.sync_order_to_kds(order)
 
         return order
@@ -241,7 +231,6 @@ class PaymentService:
         base_url = settings.PINELABS_EDC_BASE_URL.rstrip("/")
         url = f"{base_url}/api/CloudBasedIntegration/V1/GetCloudBasedTxnStatus"
 
-        # Try to parse MerchantID as int if possible, else string
         try:
             merchant_id = int(settings.PINELABS_EDC_MERCHANT_ID)
         except ValueError:
@@ -249,57 +238,35 @@ class PaymentService:
 
         plutus_ref_id = 0
         if order.provider_reference_id and order.provider_reference_id.isdigit():
-             plutus_ref_id = int(order.provider_reference_id)
+            plutus_ref_id = int(order.provider_reference_id)
 
         payload = {
-           "MerchantID": merchant_id,
-           "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
-           "StoreId": settings.PINELABS_STORE_ID,
-           "ClientId": settings.PINELABS_EDC_CLIENT_ID,
-           "PlutusTransactionReferenceID": plutus_ref_id
+            "MerchantID": merchant_id,
+            "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
+            "StoreId": settings.PINELABS_STORE_ID,
+            "ClientId": order.store_id,  # Use order's saved store_id as ClientId
+            "PlutusTransactionReferenceID": plutus_ref_id
         }
 
         headers = {"Content-Type": "application/json"}
 
         try:
             resp = await self.http_client.post(url, json=payload, headers=headers, timeout=50.0)
-            data = resp.json() # Pine labs returns JSON directly
-
-            # Logic to determine status from Pine Labs response
-            # Assuming typical Pine Labs response structure
-            # Example response wasn't fully provided but inferred from "PlutusTransactionReferenceID" usage
-            # We look for "ResponseCode" check usually. 0 is success often.
-            # But prompt didn't specify success condition.
-            # I will log the response and assume some standard fields or check for "Transaction Status" if available.
+            data = resp.json()
 
             logger.info(f"Pine Labs Status Response: {data}")
 
-            # Common Pine Labs fields: ResponseCode, ResponseMessage.
-            # 0 is usually success.
-            # Let's trust the user might have provided more info or valid assumptions.
-            # User said: "if edc endpoint is called then it will work with pine labs"
-            # User provided Get Status Payload.
-
-            # I will conservatively check for implicit success or explicit status fields.
-            # If no clear docs, I will map basic 200 OK + some field check.
-
             response_code = data.get("ResponseCode")
-            message = data.get("ResponseMessage", "")
 
             new_status = order.payment_status
 
-            # Adjust mapping based on actual API behavior.
             if str(response_code) == "0":
-                 new_status = PaymentStatus.COMPLETED
+                new_status = PaymentStatus.COMPLETED
             elif str(response_code) in ["1001", "1002"]:
-                 # 1001 = TXN UPLOADED, 1002 = PROCESSING
-                 # Treat as PENDING, do not fail.
-                 new_status = PaymentStatus.PENDING
+                new_status = PaymentStatus.PENDING
             elif str(response_code) != "0" and response_code is not None:
-                 # If explicit failure code (e.g. 1003, 1004)
-                 new_status = PaymentStatus.FAILED
+                new_status = PaymentStatus.FAILED
 
-            # Always update provider response and code for debugging/tracking
             if new_status != order.payment_status or str(response_code) != str(order.provider_code):
                 order.payment_status = new_status
                 order.provider_resp = data
@@ -316,7 +283,6 @@ class PaymentService:
             return order
 
     async def _check_phonepe_status(self, order: Order):
-        # Existing PhonePe logic
         endpoint = f"{settings.TRANSACTION_ENDPOINT}/{settings.MERCHANT_ID}/{order.order_id}/status"
 
         x_verify = make_hash(endpoint + settings.SALT_KEY) + f"###{settings.SALT_KEY_INDEX}"
@@ -341,14 +307,12 @@ class PaymentService:
             elif code in ["PAYMENT_ERROR", "PAYMENT_DECLINED", "PAYMENT_CANCELLED", "TRANSACTION_NOT_FOUND"]:
                 new_status = PaymentStatus.FAILED
 
-            # 4. Update DB
             if new_status != order.payment_status:
                 order.payment_status = new_status
                 order.provider_code = code
                 order.provider_resp = data
                 await self.db.commit()
 
-            # 5. KDS Sync
             if new_status == PaymentStatus.COMPLETED:
                 await self.order_service.sync_order_to_kds(order)
 
@@ -389,6 +353,7 @@ class PaymentService:
 
 
 from app.utils.petpooja import PetpoojaClient
+
 
 # --- BACKGROUND TASK ---
 

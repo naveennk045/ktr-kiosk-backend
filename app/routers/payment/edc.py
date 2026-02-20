@@ -16,7 +16,6 @@ async def initiate_edc(
         request.store_id
     )
 
-    # Manual Mapping for EDC Response
     provider_msg = "Request sent to Pine Labs Terminal"
     if order.provider_resp:
         provider_msg = order.provider_resp.get("ResponseMessage", provider_msg)
@@ -36,15 +35,12 @@ async def check_edc_status(
 ):
     order = await service.check_status(order_id)
 
-    # Extract EDC specific fields from JSON
-    # Pine Labs returns flat JSON usually
     data = order.provider_resp or {}
 
-    # Attempt to extract amount, handle potential string/int types
     amt = data.get("Amount")
     if amt:
         try:
-            amt = int(float(amt)) # Handle "500.00" or "50000"
+            amt = int(float(amt))
         except:
              amt = None
 
@@ -53,12 +49,10 @@ async def check_edc_status(
         transaction_id=order.order_id,
         payment_status=order.payment_status,
         provider_code=order.provider_code,
-        # EDC specific mappings for Pine Labs
         payment_mode=str(data.get("PaymentMode", "")),
         amount=amt,
-        payment_state=str(data.get("ResponseCode", "")), # ResponseCode as state/code
+        payment_state=str(data.get("ResponseCode", "")),
         reference_number=str(data.get("PlutusTransactionReferenceID", "")),
-
         provider_raw=data,
         kds_invoice_id=order.kds_invoice_id,
         kds_status=order.kds_status,
