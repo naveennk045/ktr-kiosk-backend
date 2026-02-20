@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent 
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -26,7 +26,6 @@ class Settings(BaseSettings):
     TRANSACTION_ENDPOINT: str
     QR_INIT_ENDPOINT: str
     X_PROVIDER_ID: str
-    EDC_ENDPOINT: str
 
 #  Rista credentials
     RISTA_PI_KEY: str
