@@ -13,3 +13,4 @@ PyJWT
 cryptography
 redis>=5.0.1
 pydantic
+gunicorn
