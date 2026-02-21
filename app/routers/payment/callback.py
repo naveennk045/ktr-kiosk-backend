@@ -7,7 +7,7 @@ import redis.asyncio as redis
 
 from app.core.dependencies import get_http_client, get_redis_client
 from app.utils.phonepe import verify_phonepe_callback_hash
-from app.services.payment_service import process_webhook_in_background
+from app.services.payment_service import PaymentService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -46,7 +46,7 @@ async def handle_callback(
 
     if merchant_order_id:
         background_tasks.add_task(
-            process_webhook_in_background,
+            PaymentService.run_webhook_in_background,
             merchant_order_id=merchant_order_id,
             code=code,
             payload=payload,

@@ -2,8 +2,8 @@ import logging
 import httpx
 import redis.asyncio as redis
 from datetime import datetime, timezone
-from typing import Optional, Tuple
-from sqlalchemy import select, update
+from typing import Optional
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
@@ -15,9 +15,8 @@ from app.utils.phonepe import (
 from app.db.models.order import Order, PaymentStatus, KdsStatus, PaymentMethod
 from app.services.order_service import OrderService
 from app.services.catalog_service import CatalogService
-
+from app.utils.petpooja import PetpoojaClient
 from app.db.session import SessionLocal
-from app.db.models.edc_config import EdcConfig
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +109,6 @@ class PaymentService:
             logger.error(f"QR Init Failed: {e}", exc_info=True)
             raise HTTPException(status_code=502, detail="Payment Gateway Error")
 
-    # --- EDC LOGIC ---
     # --- EDC LOGIC (Pine Labs) ---
     async def initiate_edc(self, order_id: str, amount_paise: int, store_id: str):
         stmt = select(Order).where(Order.order_id == order_id)
@@ -351,29 +349,26 @@ class PaymentService:
         if order.payment_status == PaymentStatus.COMPLETED:
             await self.order_service.sync_order_to_kds(order)
 
+    # --- BACKGROUND TASK ---
 
-from app.utils.petpooja import PetpoojaClient
+    @staticmethod
+    async def run_webhook_in_background(
+            merchant_order_id: str,
+            code: str,
+            payload: dict,
+            http_client: httpx.AsyncClient,
+            redis_client: redis.Redis,
+    ):
+        """
+        Runs webhook processing in a background task with its own DB session.
+        Called by the PhonePe callback router via FastAPI BackgroundTasks.
+        """
+        logger.info(f"Background webhook task running for order {merchant_order_id}...")
 
+        async with SessionLocal() as db:
+            petpooja_client = PetpoojaClient(http_client)
+            catalog_service = CatalogService(redis_client, petpooja_client)
+            order_service = OrderService(db, catalog_service, petpooja_client)
+            payment_service = PaymentService(db, http_client, redis_client, order_service)
 
-# --- BACKGROUND TASK ---
-
-async def process_webhook_in_background(
-        merchant_order_id: str,
-        code: str,
-        payload: dict,
-        http_client: httpx.AsyncClient,
-        redis_client: redis.Redis,
-):
-    """
-    Independent DB Session for background processing.
-    Manually instantiates services.
-    """
-    logger.info(f"Background webhook task running for order {merchant_order_id}...")
-
-    async with SessionLocal() as db:
-        petpooja_client = PetpoojaClient(http_client)
-        catalog_service = CatalogService(redis_client, petpooja_client)
-        order_service = OrderService(db, catalog_service, petpooja_client)
-        payment_service = PaymentService(db, http_client, redis_client, order_service)
-
-        await payment_service.handle_webhook(merchant_order_id, code, payload)
+            await payment_service.handle_webhook(merchant_order_id, code, payload)
