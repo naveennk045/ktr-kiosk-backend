@@ -163,7 +163,7 @@ class OrderService:
         Delegates payload construction to PetpoojaPayloadBuilder.
         CatalogService is already injected and uses Redis caching, so re-use is efficient.
         """
-        return PetpoojaPayloadBuilder(order, catalog, self.catalog).build()
+        return PetpoojaPayloadBuilder(order, catalog).build()
 
     async def _update_kds_status(self, order: Order, status: KdsStatus, error: str = None, invoice_id: str = None):
         """Update order KDS status and related fields."""

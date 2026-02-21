@@ -1,8 +1,9 @@
 import logging
-from typing import Dict, Any
 from fastapi import APIRouter, Request, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db
+from app.utils.petpooja import PetpoojaClient
+from app.services.catalog_service import CatalogService
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +34,11 @@ async def petpooja_menu_push(
         # 2. Trigger Processing
         redis_client = request.app.state.redis_client
         if redis_client:
-            from app.services.catalog_service import CatalogService
-            # We don't need petpooja client for processing data we already have
-            service = CatalogService(redis_client=redis_client, petpooja_client=None)
+            # Build a real PetpoojaClient so CatalogService is fully initialised.
+            # process_and_cache_menu won't call fetch_menu(), but we avoid the None sentinel.
+            http_client = request.app.state.http_client
+            petpooja_client = PetpoojaClient(http_client)
+            service = CatalogService(redis_client=redis_client, petpooja_client=petpooja_client)
 
             try:
                 await service.process_and_cache_menu(data)

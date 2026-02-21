@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from app.core.config import settings
 from app.db.models.order import Order, OrderType
-from app.services.catalog_service import CatalogService
+from app.utils.tax_utils import money, find_item, build_sale_item
 
 
 class PetpoojaPayloadBuilder:
@@ -17,10 +17,9 @@ class PetpoojaPayloadBuilder:
     4. Tax aggregation: Global Tax.details contains total amounts across all items.
     """
 
-    def __init__(self, order: Order, catalog: Dict, catalog_service: CatalogService):
+    def __init__(self, order: Order, catalog: Dict):
         self.order = order
         self.catalog = catalog
-        self.catalog_service = catalog_service
 
     def build(self) -> Dict[str, Any]:
         catalog_items = self.catalog.get("items", [])
@@ -128,14 +127,14 @@ class PetpoojaPayloadBuilder:
         tax_aggregation: Dict[str, Any] = {}
 
         for item_spec in self.order.items:
-            src_item = self.catalog_service.find_item(catalog_items, item_spec.get("sku_code"))
+            src_item = find_item(catalog_items, item_spec.get("sku_code"))
             if not src_item:
                 raise ValueError(f"SKU {item_spec.get('sku_code')} not found in catalog")
 
             quantity = item_spec["quantity"]
 
             # build_sale_item returns total amounts for the quantity
-            line, _tax_inc, _tax_exc = self.catalog_service.build_sale_item(src_item, quantity, tax_index)
+            line, _tax_inc, _tax_exc = build_sale_item(src_item, quantity, tax_index)
 
             # FIX #2: Petpooja expects per-unit pricing, not totals
             unit_price = float(src_item.get("price"))
@@ -191,6 +190,6 @@ class PetpoojaPayloadBuilder:
         """Formats accumulated tax totals into Petpooja's global Tax.details format."""
         result = []
         for tax_data in tax_aggregation.values():
-            tax_data["tax"] = self.catalog_service.money(tax_data["tax"])
+            tax_data["tax"] = money(tax_data["tax"])
             result.append(tax_data)
         return result
