@@ -241,8 +241,8 @@ class PaymentService:
         payload = {
             "MerchantID": merchant_id,
             "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
-            "StoreId": settings.PINELABS_STORE_ID,
-            "ClientId": order.store_id,  # Use order's saved store_id as ClientId
+            "StoreID": settings.PINELABS_STORE_ID,
+            "ClientID": settings.PINELABS_EDC_CLIENT_ID,
             "PlutusTransactionReferenceID": plutus_ref_id
         }
 
