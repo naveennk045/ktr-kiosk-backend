@@ -135,8 +135,7 @@ class PaymentService:
             "TransactionNumber": order_id,
             "SequenceNumber": 1,
             "AllowedPaymentMode": "1",
-            "ClientID": settings.PINELABS_EDC_CLIENT_ID,
-            # "ClientID": store_id,  # store_id is passed as the device's ClientID
+            "ClientID": store_id,  # store_id is passed as the device's ClientID
             "Amount": str(amount_paise),
             "UserID": settings.PINELABS_EDC_USER_ID,
             "MerchantID": merchant_id,
