@@ -141,7 +141,7 @@ class PaymentService:
             "MerchantID": merchant_id,
             "StoreID": settings.PINELABS_STORE_ID,
             "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
-            "AutoCancelDurationInMinutes": 5
+            "AutoCancelDurationInMinutes": 3
         }
 
         headers = {
