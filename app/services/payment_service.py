@@ -241,7 +241,7 @@ class PaymentService:
             "MerchantID": merchant_id,
             "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
             "StoreID": settings.PINELABS_STORE_ID,
-            "ClientID": settings.PINELABS_EDC_CLIENT_ID,
+            "ClientID": order.store_id,
             "PlutusTransactionReferenceID": plutus_ref_id
         }
 
