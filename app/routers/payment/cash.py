@@ -14,7 +14,7 @@ async def initiate_cash_payment(
     order = await service.initiate_cash(
         request.order_id,
         request.amount_paise,
-        request.store_id,
+        request.terminal_id,
         request.pin
     )
 

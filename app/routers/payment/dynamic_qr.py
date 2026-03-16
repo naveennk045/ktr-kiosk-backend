@@ -10,7 +10,7 @@ async def initiate_qr(
         request: QRInitiateRequest,
         service: PaymentService = Depends(get_payment_service)
 ):
-    order = await service.initiate_qr(request.order_id, request.amount_paise, request.store_id)
+    order = await service.initiate_qr(request.order_id, request.amount_paise, request.terminal_id)
 
     return QRInitiateResponse(
         order_id=order.order_id,

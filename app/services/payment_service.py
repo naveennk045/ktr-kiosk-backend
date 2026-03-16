@@ -13,6 +13,7 @@ from app.utils.phonepe import (
     compute_x_verify_for_endpoint, compute_qr_expiry,
 )
 from app.db.models.order import Order, PaymentStatus, KdsStatus, PaymentMethod
+from app.db.models.edc_config import EdcConfig
 from app.services.order_service import OrderService
 from app.services.catalog_service import CatalogService
 from app.utils.petpooja import PetpoojaClient
@@ -35,7 +36,7 @@ class PaymentService:
         self.order_service = order_service
 
     # --- QR LOGIC ---
-    async def initiate_qr(self, order_id: str, amount_paise: int, store_id: Optional[str] = None):
+    async def initiate_qr(self, order_id: str, amount_paise: int, terminal_id: Optional[str] = None):
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
@@ -53,7 +54,7 @@ class PaymentService:
             "expiresIn": 180,
             "merchantId": settings.MERCHANT_ID,
             "merchantOrderId": order_id,
-            "storeId": store_id if store_id else getattr(settings, "STORE_ID", None),
+            "storeId": getattr(settings, "STORE_ID", None),
             "terminalId": getattr(settings, "TERMINAL_ID", None),
             "transactionId": order_id,
             "message": f"Payment for order {order_id}",
@@ -86,7 +87,7 @@ class PaymentService:
                                                                                               {}).get("qrData")
             code = payload.get("code")
 
-            order.store_id = store_id if store_id else getattr(settings, "STORE_ID", None)
+            order.terminal_id = terminal_id
             order.provider_resp = payload
             order.provider_code = code
             order.qr_string = qr_string
@@ -110,7 +111,7 @@ class PaymentService:
             raise HTTPException(status_code=502, detail="Payment Gateway Error")
 
     # --- EDC LOGIC (Pine Labs) ---
-    async def initiate_edc(self, order_id: str, amount_paise: int, store_id: str):
+    async def initiate_edc(self, order_id: str, amount_paise: int, terminal_id: str):
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
@@ -122,6 +123,15 @@ class PaymentService:
         if order.payment_status == PaymentStatus.PENDING and order.provider_resp:
             logger.info(f"Returning existing EDC request for pending order {order_id}")
             return order
+
+        # Look up EdcConfig by terminal_id
+        edc_stmt = select(EdcConfig).where(EdcConfig.terminal_id == terminal_id)
+        edc_config = (await self.db.execute(edc_stmt)).scalar_one_or_none()
+        if not edc_config:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No EDC config found for terminal_id '{terminal_id}'. Please provide a valid terminal ID."
+            )
 
         base_url = settings.PINELABS_EDC_BASE_URL.rstrip("/")
         url = f"{base_url}/api/CloudBasedIntegration/V1/UploadBilledTransaction"
@@ -135,11 +145,11 @@ class PaymentService:
             "TransactionNumber": order_id,
             "SequenceNumber": 1,
             "AllowedPaymentMode": "1",
-            "ClientID": store_id,  # store_id is passed as the device's ClientID
+            "ClientID": terminal_id,
             "Amount": str(amount_paise),
             "UserID": settings.PINELABS_EDC_USER_ID,
             "MerchantID": merchant_id,
-            "StoreID": settings.PINELABS_STORE_ID,
+            "StoreID": edc_config.store_id,
             "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
             "AutoCancelDurationInMinutes": 3
         }
@@ -159,7 +169,7 @@ class PaymentService:
 
             plutus_ref_id = payload.get("PlutusTransactionReferenceID")
 
-            order.store_id = store_id
+            order.terminal_id = terminal_id
             order.provider_resp = payload
             order.provider_reference_id = str(plutus_ref_id) if plutus_ref_id else None
             order.payment_method = PaymentMethod.CARD
@@ -178,7 +188,7 @@ class PaymentService:
             raise HTTPException(status_code=502, detail="EDC Error")
 
     # --- CASH LOGIC ---
-    async def initiate_cash(self, order_id: str, amount_paise: int, store_id: Optional[str] = None, pin: str = ""):
+    async def initiate_cash(self, order_id: str, amount_paise: int, terminal_id: Optional[str] = None, pin: str = ""):
         if pin != settings.CASH_PAYMENT_PIN:
             raise HTTPException(status_code=401, detail="Invalid PIN for cash payment")
 
@@ -190,7 +200,7 @@ class PaymentService:
         if order.payment_status == PaymentStatus.COMPLETED:
             return order
 
-        order.store_id = store_id if store_id else getattr(settings, "STORE_ID", None)
+        order.terminal_id = terminal_id
         order.payment_method = PaymentMethod.CASH
         order.payment_status = PaymentStatus.COMPLETED
         order.provider_txn_id = f"CASH-{order_id}"
@@ -233,6 +243,15 @@ class PaymentService:
         except ValueError:
             merchant_id = settings.PINELABS_EDC_MERCHANT_ID
 
+        # Look up EdcConfig by terminal_id to get StoreID
+        edc_stmt = select(EdcConfig).where(EdcConfig.terminal_id == order.terminal_id)
+        edc_config = (await self.db.execute(edc_stmt)).scalar_one_or_none()
+        if not edc_config:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No EDC config found for terminal_id '{order.terminal_id}'. Please provide a valid terminal ID."
+            )
+
         plutus_ref_id = 0
         if order.provider_reference_id and order.provider_reference_id.isdigit():
             plutus_ref_id = int(order.provider_reference_id)
@@ -240,8 +259,8 @@ class PaymentService:
         payload = {
             "MerchantID": merchant_id,
             "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
-            "StoreID": settings.PINELABS_STORE_ID,
-            "ClientID": order.store_id,
+            "StoreID": edc_config.store_id,
+            "ClientID": order.terminal_id,
             "PlutusTransactionReferenceID": plutus_ref_id
         }
 

@@ -61,7 +61,7 @@ class Order(Base):
         index=True,
     )
 
-    store_id = Column(String, nullable=True, index=True)
+    terminal_id = Column(String, nullable=True, index=True)
 
     provider_code = Column(String, nullable=True)
     provider_txn_id = Column(String, nullable=True, index=True)
