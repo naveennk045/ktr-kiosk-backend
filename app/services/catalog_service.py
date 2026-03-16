@@ -60,7 +60,10 @@ class CatalogService:
         try:
             if cached := await self.redis.get(cache_key):
                 logger.info(f"Cache hit for channel '{channel}'.")
-                return json.loads(cached)
+                catalog_data = json.loads(cached)
+                if catalog_data:
+                    await self._apply_availability_overrides(catalog_data, db)
+                return catalog_data
         except Exception as e:
             logger.error(f"Cache read error for '{channel}': {e}", exc_info=True)
 
@@ -80,7 +83,10 @@ class CatalogService:
                 latest_menu = result.scalar_one_or_none()
                 if latest_menu and latest_menu.data:
                     logger.info("Found menu in DB. Processing and caching...")
-                    return await self.process_and_cache_menu(latest_menu.data, channel)
+                    catalog_data = await self.process_and_cache_menu(latest_menu.data, channel)
+                    if catalog_data:
+                        await self._apply_availability_overrides(catalog_data, db)
+                    return catalog_data
             except Exception as e:
                 logger.error(f"DB read error: {e}", exc_info=True)
 
@@ -129,9 +135,16 @@ class CatalogService:
 
             logger.info(f"Applying {len(overrides)} item availability overrides.")
             
-            for item in catalog_data.get("items", []):
-                if str(item.get("itemId")) in overrides:
-                    item["status"] = "Inactive"
+            # Filter out items that are marked as unavailable
+            original_count = len(catalog_data.get("items", []))
+            catalog_data["items"] = [
+                item for item in catalog_data.get("items", [])
+                if str(item.get("itemId")) not in overrides
+            ]
+            new_count = len(catalog_data["items"])
+            
+            if original_count != new_count:
+                logger.info(f"Removed {original_count - new_count} unavailable items from catalog.")
                     
         except Exception as e:
             logger.error(f"Error applying availability overrides: {e}", exc_info=True)
