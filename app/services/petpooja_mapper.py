@@ -46,12 +46,17 @@ class PetpoojaMapper:
             "itemTags": ITEM_TAGS,
             "charges": [],
             "items": self._map_items(),
+            # addongroups: active groups only, with inactive addongroupitems filtered out
+            "addongroups": self._map_addongroups(),
             "optionSets": [],
             "discounts": [],
             "memberships": [],
             "taxTypes": self._map_taxes(),
         }
 
+    # ------------------------------------------------------------------ #
+    # Taxes
+    # ------------------------------------------------------------------ #
     def _map_taxes(self) -> List[Dict]:
         """Map Petpooja taxes[] → internal taxTypes[]."""
         result = []
@@ -64,6 +69,9 @@ class PetpoojaMapper:
             })
         return result
 
+    # ------------------------------------------------------------------ #
+    # Categories
+    # ------------------------------------------------------------------ #
     def _map_categories(self) -> List[Dict]:
         """Map Petpooja categories[] → internal categories[]."""
         result = []
@@ -78,11 +86,59 @@ class PetpoojaMapper:
             })
         return result
 
+    # ------------------------------------------------------------------ #
+    # Add-on Groups
+    # ------------------------------------------------------------------ #
+    def _map_addongroups(self) -> List[Dict]:
+        """
+        Map Petpooja addongroups[] → filtered addongroups[].
+
+        - Inactive groups (active != "1") are skipped entirely.
+        - Inactive addongroupitems inside active groups are also filtered out.
+          This is important because PetPooja updates menus frequently and
+          inactive items must not appear in the kiosk.
+        """
+        result = []
+        for ag in self.pp_data.get("addongroups", []):
+            if str(ag.get("active")) != "1":
+                continue
+            # Deep copy to avoid mutating the raw response
+            ag_mapped = {
+                "addongroupid": str(ag.get("addongroupid")),
+                "addongroup_name": ag.get("addongroup_name"),
+                "addongroup_rank": ag.get("addongroup_rank"),
+                "active": ag.get("active"),
+                "addongroupitems": [
+                    {
+                        "addonitemid": str(i.get("addonitemid")),
+                        "addonitem_name": i.get("addonitem_name"),
+                        "addonitem_price": str(i.get("addonitem_price", "0")),
+                        "addonitem_rank": i.get("addonitem_rank"),
+                        "active": i.get("active"),
+                        "attributes": i.get("attributes"),
+                    }
+                    for i in ag.get("addongroupitems", [])
+                    if str(i.get("active")) == "1"
+                ],
+            }
+            result.append(ag_mapped)
+        return result
+
+    # ------------------------------------------------------------------ #
+    # Items
+    # ------------------------------------------------------------------ #
     def _map_items(self) -> List[Dict]:
         """
         Map Petpooja items[] → internal items[].
-        Items with variations are flattened — each active variation becomes its own SKU.
-        Inactive items (active != "1") are skipped.
+
+        - Inactive items (active != "1") are skipped.
+        - All existing frontend-compatible fields are preserved unchanged.
+        - variation[]: active only, PetPooja field names preserved.
+          NOTE: When itemallowvariation=1, the base item price is "0".
+          The real price comes from the customer's chosen variation.
+        - addon[]: references to addongroup IDs with min/max selection rules.
+        - itemallowvariation / itemallowaddon flags so the frontend knows
+          which items need the customer to make a choice before ordering.
         """
         result = []
         for item in self.pp_data.get("items", []):
@@ -95,14 +151,32 @@ class PetpoojaMapper:
             attr_id = str(item.get("item_attributeid"))
             tag_ids = [_ATTR_TO_TAG[attr_id]] if attr_id in _ATTR_TO_TAG else []
 
-            base = {
+            # Active variations only — field names kept exactly as PetPooja sends them.
+            # Each variation: { id, variationid, name, groupname, price, active,
+            #                   item_packingcharges, variationrank, addon, variationallowaddon }
+            active_variations = [
+                var for var in item.get("variation", [])
+                if str(var.get("active")) == "1"
+            ]
+
+            # item.addon[]: list of { addon_group_id, addon_item_selection_min,
+            #                         addon_item_selection_max }
+            # Cross-reference with catalog["addongroups"] by addongroupid to get item details.
+            addon_refs = item.get("addon", [])
+
+            allow_variation = str(item.get("itemallowvariation")) == "1"
+            allow_addon = str(item.get("itemallowaddon")) == "1"
+
+            result.append({
+                # ---- Original frontend-compatible fields (unchanged) ----
                 "itemId": str(item.get("itemid")),
                 "skuCode": str(item.get("itemid")),
                 "itemName": item.get("itemname"),
+                # When variations exist, base price is 0; use variation price instead.
                 "price": float(item.get("price", 0.0)),
                 "taxTypeIds": tax_ids,
                 "categoryId": str(item.get("item_categoryid")),
-                "isPriceIncludesTax": False,  # Petpooja sends exclusive prices
+                "isPriceIncludesTax": False,
                 "status": "Active",
                 "description": item.get("itemdescription", ""),
                 "type": "Simple",
@@ -114,21 +188,16 @@ class PetpoojaMapper:
                 "denyDiscount": False,
                 "imageURL": item.get("item_image_url", ""),
                 "optionSetIds": [],
-            }
-
-            variations = item.get("variation", [])
-            if not variations:
-                result.append(base)
-            else:
-                # Flatten: each active variation becomes an independent SKU
-                for var in variations:
-                    if str(var.get("active")) != "1":
-                        continue
-                    var_item = base.copy()
-                    var_item["itemId"] = str(var.get("id"))
-                    var_item["skuCode"] = str(var.get("id"))
-                    var_item["itemName"] = f"{item.get('itemname')} ({var.get('name')})"
-                    var_item["price"] = float(var.get("price", 0.0))
-                    result.append(var_item)
+                # ---- Variation & add-on support ----
+                # True when the customer MUST choose a size/variant before ordering.
+                "itemallowvariation": allow_variation,
+                # variation[]: each has id, variationid, name, groupname, price, ...
+                "variation": active_variations,
+                # True when the customer CAN add optional extras.
+                "itemallowaddon": allow_addon,
+                # addon[]: [{ addon_group_id, addon_item_selection_min, addon_item_selection_max }]
+                # Resolve the full options via catalog["addongroups"][addongroupid].
+                "addon": addon_refs,
+            })
 
         return result

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
 from app.db.models.order import Order, OrderType
@@ -15,11 +15,22 @@ class PetpoojaPayloadBuilder:
     2. Per-unit pricing: final_price is per unit, not total quantity.
     3. Per-unit taxes: item_tax amounts are per unit, not total quantity.
     4. Tax aggregation: Global Tax.details contains total amounts across all items.
+    5. Variation support: variation_name and variation_id are filled from the selected variation.
+       The variation price is used instead of the base item price (base is "0" for variation items).
+    6. Addon support: AddonItem.details is built from the customer's addon selections,
+       resolved against the catalog addongroups index.
     """
 
     def __init__(self, order: Order, catalog: Dict):
         self.order = order
         self.catalog = catalog
+        # Build a flat index: addonitemid → addon item dict, for fast lookup during order build.
+        # This avoids nested loops for every order item.
+        self._addon_item_index: Dict[str, Dict] = {
+            item["addonitemid"]: item
+            for ag in catalog.get("addongroups", [])
+            for item in ag.get("addongroupitems", [])
+        }
 
     def build(self) -> Dict[str, Any]:
         catalog_items = self.catalog.get("items", [])
@@ -118,30 +129,92 @@ class PetpoojaPayloadBuilder:
             }
         }
 
+    def _resolve_variation(self, src_item: dict, variation_id: Optional[str]) -> Optional[dict]:
+        """
+        Look up the customer's selected variation from the catalog item's variation list.
+
+        variation_id is the 'id' field (the unique row ID), NOT 'variationid'.
+        Returns the variation dict if found, else None.
+        """
+        if not variation_id:
+            return None
+        for var in src_item.get("variation", []):
+            if str(var.get("id")) == str(variation_id):
+                return var
+        return None
+
+    def _build_addon_details(self, addon_items: List[Dict]) -> List[Dict]:
+        """
+        Resolve the customer's addon selections against the catalog index.
+
+        Each entry in addon_items: { addon_item_id: str, quantity: int }
+        Returns a list of PetPooja AddonItem detail dicts.
+        """
+        details = []
+        for spec in (addon_items or []):
+            addon_item_id = str(spec.get("addon_item_id", ""))
+            addon_info = self._addon_item_index.get(addon_item_id)
+            if not addon_info:
+                # The addon item no longer exists in the catalog (was deactivated);
+                # skip silently so the order still goes through.
+                continue
+            details.append({
+                "id": addon_info["addonitemid"],
+                "name": addon_info["addonitem_name"],
+                "price": str(addon_info.get("addonitem_price", "0")),
+                "quantity": str(spec.get("quantity", 1)),
+            })
+        return details
+
     def _build_order_items(self, catalog_items: list, tax_index: dict) -> tuple[list, dict]:
         """
         Builds the list of Petpooja order items and accumulates global tax totals.
+
+        For each order item:
+        - `price` is precisely the unit price of the base item or variation.
+        - `final_price` is precisely `price - (item_discount / quantity)`.
+        - Taxes are calculated per unit and included in global aggregation.
+        - Addons are resolved and listed.
+
         Returns (order_items, tax_aggregation).
         """
         order_items = []
         tax_aggregation: Dict[str, Any] = {}
 
         for item_spec in self.order.items:
+            # 1. Base Item Resolution
             src_item = find_item(catalog_items, item_spec.get("sku_code"))
             if not src_item:
                 raise ValueError(f"SKU {item_spec.get('sku_code')} not found in catalog")
 
             quantity = item_spec["quantity"]
 
-            # build_sale_item returns total amounts for the quantity
-            line, _tax_inc, _tax_exc = build_sale_item(src_item, quantity, tax_index)
+            # 2. Extract Variation details if the order has one
+            variation_id = item_spec.get("variation_id")
+            selected_variation = self._resolve_variation(src_item, variation_id)
+            if selected_variation:
+                variation_name = selected_variation.get("name", "")
+                variation_id_out = str(selected_variation.get("id", ""))
+            else:
+                variation_name = ""
+                variation_id_out = ""
 
-            # FIX #2: Petpooja expects per-unit pricing, not totals
-            unit_price = float(src_item.get("price"))
+            # 3. Old Calculation Method!
+            # build_sale_item returns total amounts for the entire quantity of this sku.
+            # We override the price with the actual catalog price (either variation or base)
+            pricing_item = dict(src_item)
+            if selected_variation:
+                pricing_item["price"] = float(selected_variation.get("price", 0))
+
+            line, _tax_inc, _tax_exc = build_sale_item(pricing_item, quantity, tax_index)
+
+            # Revert to old pricing strategy!
+            # Petpooja expects per-unit pricing, not totals BEFORE discount
+            unit_price = float(pricing_item.get("price", 0))
             item_discount_per_unit = 0.0  # TODO: Implement discounts if needed
             unit_final_price = unit_price - item_discount_per_unit
 
-            # FIX #3: Calculate per-unit tax amounts
+            # Revert to old per-unit tax amounts calculation
             p_item_taxes = []
             for t in line.get("taxes", []):
                 total_tax_amount = float(t.get("amount", 0))
@@ -154,7 +227,7 @@ class PetpoojaPayloadBuilder:
                     "amount": str(round(per_unit_tax, 2))  # Per unit
                 })
 
-                # FIX #4: Accumulate total tax amounts for global Tax section
+                # Accumulate total tax amounts for global Tax section
                 tax_id = t.get("id")
                 if tax_id:
                     if tax_id not in tax_aggregation:
@@ -168,6 +241,10 @@ class PetpoojaPayloadBuilder:
                         }
                     tax_aggregation[tax_id]["tax"] += total_tax_amount
 
+            # FIX #6: Build addon details from customer selections
+            addon_items_spec = item_spec.get("addon_items", [])
+            addon_details = self._build_addon_details(addon_items_spec)
+
             order_items.append({
                 "id": str(src_item.get("skuCode")),
                 "name": src_item.get("itemName"),
@@ -179,9 +256,9 @@ class PetpoojaPayloadBuilder:
                 "final_price": str(unit_final_price),
                 "quantity": str(quantity),
                 "description": "",
-                "variation_name": "",
-                "variation_id": "",
-                "AddonItem": {"details": []}  # TODO: Add addon support if needed
+                "variation_name": variation_name,
+                "variation_id": variation_id_out,
+                "AddonItem": {"details": addon_details},
             })
 
         return order_items, tax_aggregation

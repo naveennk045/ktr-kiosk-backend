@@ -50,8 +50,34 @@ class OrderService:
                 raise ValueError(f"Invalid item SKU code: {item_req.sku_code}")
 
             quantity = item_req.quantity
+            
+            # Resolve base price OR variation price
             unit_price = float(catalog_item.get("price", 0.0))
-            line_total_price = unit_price * quantity
+            if item_req.variation_id:
+                for var in catalog_item.get("variation", []):
+                    if str(var.get("id")) == str(item_req.variation_id):
+                        unit_price = float(var.get("price", 0.0))
+                        break
+
+            # Resolve addon prices
+            addon_price_total = 0.0
+            addon_items_list = []
+            if item_req.addon_items:
+                # Need an index to find the price of the addon item
+                addon_index = {
+                    str(item["addonitemid"]): float(item.get("addonitem_price", 0.0))
+                    for ag in catalog_data.get("addongroups", [])
+                    for item in ag.get("addongroupitems", [])
+                }
+                
+                for addon in item_req.addon_items:
+                    addon_items_list.append(addon.model_dump())
+                    price = addon_index.get(str(addon.addon_item_id), 0.0)
+                    addon_price_total += price * addon.quantity
+
+            # The full unit price for KTR internal database includes base + addons
+            full_unit_price = unit_price + addon_price_total
+            line_total_price = full_unit_price * quantity
 
             line_tax = 0.0
             if not catalog_item.get("isPriceIncludesTax", False):
@@ -66,7 +92,10 @@ class OrderService:
                 "sku_code": item_req.sku_code,
                 "item_name": catalog_item.get("itemName"),
                 "quantity": quantity,
-                "unit_price": unit_price,
+                # We save final calculated unit price for the DB
+                "unit_price": full_unit_price,
+                "variation_id": item_req.variation_id,
+                "addon_items": addon_items_list,
             })
 
         # 3. Generate IDs
