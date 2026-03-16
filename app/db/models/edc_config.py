@@ -9,4 +9,4 @@ class EdcConfig(Base):
     store_id = Column(String, index=True, nullable=False)
     terminal_id = Column(String, nullable=False)
     mid_on_device = Column(String, nullable=True)
-    tid_on_device = Column(String, nullable=True)
+    store_name = Column(String, nullable=True)

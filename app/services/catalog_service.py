@@ -102,7 +102,39 @@ class CatalogService:
         except Exception as e:
             logger.warning(f"Cache write error for '{channel}': {e}", exc_info=True)
 
+        if catalog_data:
+            await self._apply_availability_overrides(catalog_data, db)
+
         return catalog_data
+
+    async def _apply_availability_overrides(self, catalog_data: Dict[str, Any], db: Any) -> None:
+        """
+        Fetch all active overrides from the database and apply them to the catalog.
+        Items explicitly marked as is_available=False will be set to status='Inactive'.
+        """
+        if not db:
+            return
+
+        from app.db.models.item_availability import ItemAvailability
+        from sqlalchemy import select
+
+        try:
+            # We only care about items that are turned OFF
+            stmt = select(ItemAvailability).where(ItemAvailability.is_available == False)
+            result = await db.execute(stmt)
+            overrides = {oa.sku_code for oa in result.scalars().all()}
+
+            if not overrides:
+                return
+
+            logger.info(f"Applying {len(overrides)} item availability overrides.")
+            
+            for item in catalog_data.get("items", []):
+                if str(item.get("itemId")) in overrides:
+                    item["status"] = "Inactive"
+                    
+        except Exception as e:
+            logger.error(f"Error applying availability overrides: {e}", exc_info=True)
 
     async def process_and_cache_menu(
         self, menu_data: Dict[str, Any], channel: str = "default"
