@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
-from app.core.dependencies import get_db
+import redis.asyncio as redis
+from app.core.dependencies import get_db, get_redis_client
 from app.db.models.edc_config import EdcConfig
 from app.db.models.item_availability import ItemAvailability
 from app.db.models.order import Order
@@ -75,7 +76,8 @@ async def get_item_availabilities(db: AsyncSession = Depends(get_db)):
 @router.post("/catalog/availability", response_model=ItemAvailabilityResponse)
 async def update_item_availability(
     req: ItemAvailabilityUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis_client)
 ):
     """Update or create an availability override for an item SKU."""
     stmt = select(ItemAvailability).where(ItemAvailability.sku_code == req.sku_code)
@@ -95,10 +97,6 @@ async def update_item_availability(
     await db.refresh(availability)
 
     # Invalidate catalog cache globally so frontend gets fresh status
-    from app.core.dependencies import get_redis_client
-    import redis.asyncio as redis
-    redis_client = await get_redis_client()
-    
     # Simple strategy: clear all catalog keys
     keys = await redis_client.keys("petpooja_catalog_data_*")
     if keys:
