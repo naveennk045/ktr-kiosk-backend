@@ -95,7 +95,7 @@ class PetpoojaClient:
         }
 
         logger.info(f"Pushing Order to Petpooja: {url}")
-        logger.log(payload_with_auth)
+        logger.info(payload_with_auth)
 
         try:
             response = await self.client.post(
