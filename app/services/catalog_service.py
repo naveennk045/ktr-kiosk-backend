@@ -25,13 +25,50 @@ logger = logging.getLogger(__name__)
 # Update these when new categories are added or image URLs change.
 # ---------------------------------------------------------------------------
 CATEGORY_IMAGES: Dict[str, str] = {
-    "6868ca5dc29c8ed4d3c98dd5": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032823/Idli_oh6wpb.jpg",
-    "68e778dd0c42e107fdf5cf3f": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767786181/360_F_786760607_IwcScz3k7Efj42i1S7mnewhWQXrhAa0o_dnjnqq.jpg",
-    "6868ca5dc29c8ed4d3c98dd4": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Davanagere_Dose_rsju7o.jpg",
-    "6868ca5dc29c8ed4d3c98dd8": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",
-    "6868ca5dc29c8ed4d3c98dd3": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",
-    "6868ca5dc29c8ed4d3c98dd7": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032825/Rice_j5hjnu.jpg",
-    "6868ca5dc29c8ed4d3c98dd6": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg",
+    "9534536": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032823/Idli_oh6wpb.jpg",
+    "9534539": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg",
+    "9534538": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",
+    "9534540": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",
+    "9534541": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032825/Rice_j5hjnu.jpg",
+    "9593393": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg",
+    "9593400": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774711037/Gemini_Generated_Image_v6u8odv6u8odv6u8_smbylt.png",
+}
+
+# ---------------------------------------------------------------------------
+# Item image overrides — keyed by Petpooja itemid (string)
+# Update these when item images are added or changed.
+# ---------------------------------------------------------------------------
+ITEM_IMAGES: Dict[str, str] = {
+    # Idli
+    "1301947626": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708818/Idlivada_n6brxr.jpg",           # Idli Wada
+    "1301947629": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/GheePudiThateidli_z1biaa.jpg",  # Ghee Pudi Thatte Idli
+    "1301947630": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/GheePudiThateidli_z1biaa.jpg",  # Ghee Pudi Idli
+    "1301947632": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708816/IdliChuntey_p4lkub.jpg",         # Idli Chutney
+    # Wada / Snacks
+    "1301947646": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg",          # Medu Wada
+    # Bengaluru Dose
+    "1301947637": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/BenneMasalaDose_mwszev.jpg",     # Benne Pudi Masala Dose
+    "1301947638": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/BennePlain_ozxumk.jpg",          # Benne Pudi Plain Dose
+    "1301947639": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",      # Bengaluru Benne Masala Dose
+    "1301947640": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/BennePlain_ozxumk.jpg",          # Benne Plain Dose
+    "1301947641": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708814/Gheemasala_Dose_fctuf0.jpg",    # Ghee Pudi Masala Dose
+    "1301947642": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708820/GheePudiPlain_lttc5n.jpg",      # Ghee Pudi Plain Dose
+    "1301947643": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708814/Gheemasala_Dose_fctuf0.jpg",    # Ghee Masala Dose
+    "1301947644": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708816/GheePlain_hi8966.jpg",           # Ghee Plain Dose
+    # Coffee
+    "1301947647": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",              # Cold Filter Coffee
+    "1301947648": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",              # Hot Filter Coffee
+    # Extras
+    "1303112180": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767498181/65afb1fd-9f84-4ae0-b4ea-ad1f78f11835.jpg",  # Packaged Water 1L
+    "1303001035": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767498181/65afb1fd-9f84-4ae0-b4ea-ad1f78f11835.jpg",  # Packaged Water 500ml
+    # Merchandise
+    "1302832198": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712199/Postcards_dqk4vf.jpg",           # Postcards
+    "1302832746": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712367/shopping_nxt4vi.webp",           # Coasters
+    "1302832747": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712192/Fridgemagnets_mp6slj.jpg",       # Fridge Magnets
+    "1302832748": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712192/DiaryBig_x8sya7.jpg",            # Diaries
+    "1302832749": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712193/Totebag_pm8fji.jpg",             # Tote Bags
+    "1302832750": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712194/Tshirts_uk4dlg.jpg",             # T-shirts
+    "1302832751": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712199/Postcards_dqk4vf.jpg",           # Postcard Diary
 }
 
 
@@ -134,7 +171,7 @@ class CatalogService:
                 return
 
             logger.info(f"Applying {len(overrides)} item availability overrides.")
-            
+
             # Filter out items that are marked as unavailable
             original_count = len(catalog_data.get("items", []))
             catalog_data["items"] = [
@@ -142,10 +179,10 @@ class CatalogService:
                 if str(item.get("itemId")) not in overrides
             ]
             new_count = len(catalog_data["items"])
-            
+
             if original_count != new_count:
                 logger.info(f"Removed {original_count - new_count} unavailable items from catalog.")
-                    
+
         except Exception as e:
             logger.error(f"Error applying availability overrides: {e}", exc_info=True)
 
@@ -192,9 +229,10 @@ class CatalogService:
     @staticmethod
     def _apply_images_and_sort(catalog_data: Dict[str, Any]) -> None:
         """
-        Inject CATEGORY_IMAGES overrides and sort categories by categoryrank.
-        Mutates catalog_data in place.
+        Inject CATEGORY_IMAGES and ITEM_IMAGES overrides, then sort categories
+        by categoryrank. Mutates catalog_data in place.
         """
+        # --- Category images ---
         categories = catalog_data.get("categories", [])
         for category in categories:
             cat_id = str(category.get("categoryId"))
@@ -204,3 +242,11 @@ class CatalogService:
                 category["imageURL"] = category["category_image_url"]
 
         categories.sort(key=lambda c: int(c["categoryrank"]) if c.get("categoryrank") is not None else 999)
+
+        # --- Item images ---
+        for item in catalog_data.get("items", []):
+            item_id = str(item.get("itemId", ""))
+            if item_id in ITEM_IMAGES:
+                item["imageURL"] = ITEM_IMAGES[item_id]
+            elif item.get("item_image_url"):
+                item["imageURL"] = item["item_image_url"]
