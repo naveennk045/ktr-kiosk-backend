@@ -27,10 +27,10 @@ logger = logging.getLogger(__name__)
 CATEGORY_IMAGES: Dict[str, str] = {
     "9534536": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032823/Idli_oh6wpb.jpg",
     "9534539": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg",
-    "9534538": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",
+    "9534538": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774715789/BangaloreDoseCategory_1_wdaz9m.jpg",
     "9534540": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",
     "9534541": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032825/Rice_j5hjnu.jpg",
-    "9593393": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg",
+    "9593393": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767498181/65afb1fd-9f84-4ae0-b4ea-ad1f78f11835.jpg..",
     "9593400": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774711037/Gemini_Generated_Image_v6u8odv6u8odv6u8_smbylt.png",
 }
 
@@ -53,7 +53,7 @@ ITEM_IMAGES: Dict[str, str] = {
     # Bengaluru Dose
     "1301947637": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/BenneMasalaDose_mwszev.jpg",     # Benne Pudi Masala Dose
     "1301947638": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/BennePlain_ozxumk.jpg",          # Benne Pudi Plain Dose
-    "1301947639": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032828/Bengaluru_Dose_bdrozv.jpg",      # Bengaluru Benne Masala Dose
+    "1301947639": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774715789/BangaloreDoseCategory_1_wdaz9m.jpg",      # Bengaluru Benne Masala Dose
     "1301947640": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/BennePlain_ozxumk.jpg",          # Benne Plain Dose
     "1301947641": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708814/Gheemasala_Dose_fctuf0.jpg",    # Ghee Pudi Masala Dose
     "1301947642": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708820/GheePudiPlain_lttc5n.jpg",      # Ghee Pudi Plain Dose
@@ -71,12 +71,12 @@ ITEM_IMAGES: Dict[str, str] = {
     "1303001035": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767498181/65afb1fd-9f84-4ae0-b4ea-ad1f78f11835.jpg",  # Packaged Water 500ml
     # Merchandise (all use shared merchandise image)
     "1302832198": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Postcards
-    "1302832746": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Coasters
-    "1302832747": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Fridge Magnets
-    "1302832748": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Diaries
-    "1302832749": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Tote Bags
-    "1302832750": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # T-shirts
-    "1302832751": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Postcard Diary
+   "1302832746": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712367/shopping_nxt4vi.webp",           # Coasters
+    "1302832747": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712192/Fridgemagnets_mp6slj.jpg",       # Fridge Magnets
+    "1302832748": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712192/DiaryBig_x8sya7.jpg",            # Diaries
+    "1302832749": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712193/Totebag_pm8fji.jpg",             # Tote Bags
+    "1302832750": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712194/Tshirts_uk4dlg.jpg",             # T-shirts
+    "1302832751": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712199/Postcards_dqk4vf.jpg",
 }
 
 
