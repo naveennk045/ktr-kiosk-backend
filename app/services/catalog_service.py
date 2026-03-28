@@ -41,10 +41,14 @@ CATEGORY_IMAGES: Dict[str, str] = {
 ITEM_IMAGES: Dict[str, str] = {
     # Idli
     "1301947626": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708818/Idlivada_n6brxr.jpg",           # Idli Wada
+    "1301947627": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774714101/bengaluru-benne-idli-banashankari-3rd-stage-bangalore-south-indian-restaurants-js26nx1tfc_xp17lb.jpg",  # Benne Idli
+    "1301947628": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774714101/bengaluru-benne-idli-banashankari-3rd-stage-bangalore-south-indian-restaurants-js26nx1tfc_xp17lb.jpg",  # Benne Thatte Idli
     "1301947629": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/GheePudiThateidli_z1biaa.jpg",  # Ghee Pudi Thatte Idli
     "1301947630": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/GheePudiThateidli_z1biaa.jpg",  # Ghee Pudi Idli
+    "1301947631": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774713915/best-thatte-idli-in-bangalore-breakfast-cafes_xzynez.jpg",  # Thatte Idli
     "1301947632": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708816/IdliChuntey_p4lkub.jpg",         # Idli Chutney
     # Wada / Snacks
+    "1301947645": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708820/DalVada_vtjpgg.jpg",             # Dal Vada
     "1301947646": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032827/WadaSnacks_nkhdsn.jpg",          # Medu Wada
     # Bengaluru Dose
     "1301947637": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/BenneMasalaDose_mwszev.jpg",     # Benne Pudi Masala Dose
@@ -58,17 +62,21 @@ ITEM_IMAGES: Dict[str, str] = {
     # Coffee
     "1301947647": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",              # Cold Filter Coffee
     "1301947648": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032824/Coffee_f8hx0m.jpg",              # Hot Filter Coffee
+    # Rice
+    "1301947649": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774714290/chow-chow-bhaat-recipe-2_cokysu.jpg",  # Chow Chow Bath
+    "1301947655": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774714374/khara-bath-recipe-a_zqsusx.jpg",      # Khara Bath
+    "1301947656": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708822/KesriBath_ekrtwc.jpg",                # Kesari Bath
     # Extras
     "1303112180": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767498181/65afb1fd-9f84-4ae0-b4ea-ad1f78f11835.jpg",  # Packaged Water 1L
     "1303001035": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767498181/65afb1fd-9f84-4ae0-b4ea-ad1f78f11835.jpg",  # Packaged Water 500ml
-    # Merchandise
-    "1302832198": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712199/Postcards_dqk4vf.jpg",           # Postcards
-    "1302832746": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712367/shopping_nxt4vi.webp",           # Coasters
-    "1302832747": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712192/Fridgemagnets_mp6slj.jpg",       # Fridge Magnets
-    "1302832748": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712192/DiaryBig_x8sya7.jpg",            # Diaries
-    "1302832749": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712193/Totebag_pm8fji.jpg",             # Tote Bags
-    "1302832750": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712194/Tshirts_uk4dlg.jpg",             # T-shirts
-    "1302832751": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712199/Postcards_dqk4vf.jpg",           # Postcard Diary
+    # Merchandise (all use shared merchandise image)
+    "1302832198": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Postcards
+    "1302832746": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Coasters
+    "1302832747": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Fridge Magnets
+    "1302832748": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Diaries
+    "1302832749": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Tote Bags
+    "1302832750": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # T-shirts
+    "1302832751": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774710724/Gemini_Generated_Image_v6u8odv6u8odv6u8_gmay0p.png",  # Postcard Diary
 }
 
 
