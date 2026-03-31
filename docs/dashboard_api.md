@@ -25,12 +25,11 @@ This document references the APIs used by the Admin Dashboard.
   "takeAwayOrders": 50,
   "upiRupees": 20000.00,
   "cardRupees": 15000.00,
-  "cashRupees": 7500.00,
-  "manualRupees": 0.00
+  "cashRupees": 7500.00
 }
 ```
 
-`upiRupees` maps from stored payment method `QR` (UPI QR). `manualRupees` is the `MANUAL` payment method if used.
+`upiRupees` maps from stored payment method `QR` (UPI QR). `cashRupees` includes **`CASH` and `MANUAL`** payment amounts so KPIs stay in three buckets without a separate manual field.
 
 ---
 
@@ -57,6 +56,10 @@ This document references the APIs used by the Admin Dashboard.
   "content": [
     {
       "orderRefId": "KTR-80F0A9B176",
+      "orderId": "KTR-80F0A9B176",
+      "kotCode": "KTR-42",
+      "orderType": "DINEIN",
+      "paymentType": "QR",
       "location": "Palas Kiosk",
       "amount": 420.00,
       "paymentStatus": "PENDING",
@@ -69,6 +72,8 @@ This document references the APIs used by the Admin Dashboard.
   "totalElements": 300
 }
 ```
+
+`orderId` matches `orderRefId` (business order id). `orderType` is `DINEIN` or `TAKEAWAY`. `paymentType` is `QR`, `CARD`, `CASH`, or `MANUAL` when set, or `null` if payment is not chosen yet.
 
 ### Order Detail View
 **Endpoint**: `GET /orders/{order_id}`

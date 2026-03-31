@@ -91,15 +91,15 @@ Accept: application/json
   "takeAwayOrders": 14,
   "upiRupees": 22000,
   "cardRupees": 15000,
-  "cashRupees": 11250.5,
-  "manualRupees": 0
+  "cashRupees": 11250.5
 }
 ```
 
 **Field notes**
 
 - `upiRupees` — backend maps from stored payment method **`QR`** (UPI QR flow).
-- `cardRupees` / `cashRupees` / `manualRupees` — map from **`CARD`**, **`CASH`**, **`MANUAL`**.
+- `cardRupees` — **`CARD`** only.
+- `cashRupees` — **`CASH` plus `MANUAL`** (single bucket in analytics).
 - All monetary KPIs are **only from completed orders** in the selected period.
 
 **Fetch (browser)**
@@ -131,11 +131,15 @@ Accept: application/json
   "content": [
     {
       "orderRefId": "KTR-1609D08171",
+      "orderId": "KTR-1609D08171",
+      "kotCode": "KTR-1",
+      "orderType": "DINEIN",
+      "paymentType": null,
       "location": "Kiosk 1",
       "amount": 1142.0,
       "paymentStatus": "PENDING",
       "erpStatus": "NOT_POSTED",
-      "itemsSummary": "Item (+1 more)",
+      "itemsSummary": "Royal Wonder Waffles... (+1 more)",
       "createdAt": "2026-03-16T07:02:59.101211Z"
     }
   ],
@@ -144,7 +148,7 @@ Accept: application/json
 }
 ```
 
-**Note on `itemsSummary`**: The server builds a short label from each line item’s `name` field when present. Your DB rows may use **`item_name`** instead; in that case the summary may fall back to a generic label. For a rich list, rely on **`GET /orders/{order_id}`** for full lines or enhance the backend later to prefer `item_name`.
+**Note on `itemsSummary`**: The server prefers each line’s **`item_name`**, then **`name`**. For a full breakdown, use **`GET /orders/{order_id}`**.
 
 **Fetch**
 
@@ -257,11 +261,14 @@ export type AnalyticsSummary = {
   upiRupees: number;
   cardRupees: number;
   cashRupees: number;
-  manualRupees: number;
 };
 
 export type OrderGridItem = {
   orderRefId: string;
+  orderId: string;
+  kotCode: string;
+  orderType: "DINEIN" | "TAKEAWAY";
+  paymentType: "QR" | "CARD" | "CASH" | "MANUAL" | null;
   location: string;
   amount: number;
   paymentStatus: "PENDING" | "COMPLETED" | "FAILED";
@@ -301,8 +308,8 @@ Use this as a **design system brief** so the screen feels current (2025–2026 p
 - **KPI row**: 2 rows max on desktop:
   - Row A: **Total revenue** (hero, largest type), **Total orders**.
   - Row B: **Dine-in** vs **Takeaway** counts; optional small **donut or stacked bar** for share.
-- **Payment row**: three or four compact cards — **UPI**, **Card**, **Cash** (+ **Manual** if non-zero or always for parity). Use **₹** with **Indian grouping** (`en-IN`).
-- **Orders table**: full width below; **sticky header**; zebra or subtle row hover; **right-align** money; **monospace** for order IDs.
+- **Payment row**: three compact cards — **UPI**, **Card**, **Cash** (`cashRupees` includes manual-tender amounts in analytics). Use **₹** with **Indian grouping** (`en-IN`).
+- **Orders table**: full width below; **sticky header**; columns include **order id**, **KOT code**, **order type**, **payment type** (when set); **right-align** money; **monospace** for order IDs.
 
 ### 7.2 Visual style
 
@@ -336,7 +343,7 @@ API base URL: configurable via environment variable (e.g. VITE_API_BASE).
 
 Endpoints:
 - GET /analytics/summary?period={today|yesterday|last_week|all_time}
-  Returns completed-order KPIs only: totalRevenue, totalOrders, dineInOrders, takeAwayOrders, upiRupees, cardRupees, cashRupees, manualRupees. Period uses IST on the server.
+  Returns completed-order KPIs only: totalRevenue, totalOrders, dineInOrders, takeAwayOrders, upiRupees, cardRupees, cashRupees (cash+manual tender). Period uses IST on the server.
 - GET /orders?period=...&page=&size=&sortBy=&sortDir=&status=&search=
   Returns paginated orders; use the SAME period as analytics so the table matches the date filter.
 - GET /orders/{order_id} for a side drawer with full line items and paymentMeta.
@@ -345,7 +352,7 @@ UX:
 - Segmented period control; changing period resets page to 0 and refetches summary + orders in parallel.
 - KPI strip: revenue hero, order count, dine-in vs takeaway, payment method rupee cards; format currency in INR (en-IN).
 - Optional donut chart for UPI/Card/Cash share when data exists.
-- Data table: columns order ID, location, amount, payment status chip, ERP/KDS status, items summary, created time (IST).
+- Data table: columns order ID, KOT code, order type, payment type, location, amount, payment status chip, ERP/KDS status, items summary, created time (IST).
 - Row opens drawer with detailed items; defensive parsing for item_name vs name on line items.
 - Loading skeletons, empty states, error toasts; responsive layout; accessible focus in drawer.
 

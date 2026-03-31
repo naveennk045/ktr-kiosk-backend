@@ -61,10 +61,18 @@ class DashboardService:
                 func.sum(case((Order.payment_method == PaymentMethod.CARD, amt), else_=0)), 0
             ),
             func.coalesce(
-                func.sum(case((Order.payment_method == PaymentMethod.CASH, amt), else_=0)), 0
-            ),
-            func.coalesce(
-                func.sum(case((Order.payment_method == PaymentMethod.MANUAL, amt), else_=0)), 0
+                func.sum(
+                    case(
+                        (
+                            Order.payment_method.in_(
+                                (PaymentMethod.CASH, PaymentMethod.MANUAL)
+                            ),
+                            amt,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
             ),
         ).where(*base)
 
@@ -77,7 +85,6 @@ class DashboardService:
             upi,
             card,
             cash,
-            manual,
         ) = row
 
         def _f(v) -> float:
@@ -92,7 +99,6 @@ class DashboardService:
             upiRupees=_f(upi),
             cardRupees=_f(card),
             cashRupees=_f(cash),
-            manualRupees=_f(manual),
         )
 
     async def get_orders_grid(
@@ -144,20 +150,32 @@ class DashboardService:
 
         content = []
         for o in orders:
-            # Items Summary
-            item_names = [i.get("name", "Item") for i in (o.items or [])] # simple extract
+            item_names = []
+            for i in o.items or []:
+                if not isinstance(i, dict):
+                    continue
+                item_names.append(
+                    i.get("item_name") or i.get("name") or "Item"
+                )
             summary_text = item_names[0] if item_names else "No Items"
             if len(item_names) > 1:
                 summary_text += f" (+{len(item_names)-1} more)"
 
+            pay = o.payment_method
+            payment_type = pay.value if pay is not None else None
+
             content.append(OrderGridItem(
                 orderRefId=o.order_id,
-                location=o.channel, # Assuming location maps to channel or need separate logic
+                orderId=o.order_id,
+                kotCode=o.kot_code,
+                orderType=o.order_type,
+                paymentType=payment_type,
+                location=o.channel,
                 amount=float(o.total_amount_include_tax),
                 paymentStatus=o.payment_status,
                 erpStatus=o.kds_status,
                 itemsSummary=summary_text,
-                createdAt=o.created_at
+                createdAt=o.created_at,
             ))
 
         return OrderGridResponse(

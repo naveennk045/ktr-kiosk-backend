@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Literal, Optional
 from datetime import datetime
-from app.db.models.order import PaymentStatus
+from app.db.models.order import OrderType, PaymentStatus
 
 DashboardPeriod = Literal["today", "yesterday", "last_week", "all_time"]
 
@@ -15,10 +15,13 @@ class AnalyticsSummaryResponse(BaseModel):
     upiRupees: float
     cardRupees: float
     cashRupees: float
-    manualRupees: float
 
 class OrderGridItem(BaseModel):
     orderRefId: str
+    orderId: str
+    kotCode: str
+    orderType: OrderType
+    paymentType: Optional[str] = None
     location: str
     amount: float
     paymentStatus: PaymentStatus

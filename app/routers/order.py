@@ -1,9 +1,14 @@
 import logging
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from app.db.schemas.order import OrderCreateRequest, OrderCreateResponse
-from app.core.dependencies import get_order_service, get_db
-from app.services.order_service import OrderService
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.dependencies import get_order_service, get_db
+from app.db.schemas.dashboard import DashboardPeriod, OrderDetailResponse, OrderGridResponse
+from app.db.schemas.order import OrderCreateRequest, OrderCreateResponse
+from app.services.dashboard_service import DashboardService
+from app.services.order_service import OrderService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -43,10 +48,6 @@ async def create_order(
         )
 
 # --- DASHBOARD ENDPOINTS ---
-
-from app.services.dashboard_service import DashboardService
-from app.db.schemas.dashboard import OrderGridResponse, OrderDetailResponse
-from typing import Optional
 
 async def get_dashboard_service(db: AsyncSession = Depends(get_db)) -> DashboardService:
     return DashboardService(db)
