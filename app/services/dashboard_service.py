@@ -1,51 +1,98 @@
 import logging
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, asc, text
-from app.db.models.order import Order, PaymentStatus, KdsStatus
+from sqlalchemy import select, func, desc, asc, case
+from app.db.models.order import Order, PaymentStatus, OrderType, PaymentMethod
 from app.db.schemas.dashboard import (
-    AnalyticsSummaryResponse, OrderGridResponse, OrderGridItem, OrderDetailResponse
+    AnalyticsSummaryResponse,
+    DashboardPeriod,
+    OrderGridResponse,
+    OrderGridItem,
+    OrderDetailResponse,
 )
-from datetime import datetime
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+IST = ZoneInfo("Asia/Kolkata")
+
+
+def _time_filters_for_period(period: DashboardPeriod) -> list:
+    """IST calendar boundaries. last_week = from 00:00 seven days ago through now."""
+    now = datetime.now(IST)
+    if period == "all_time":
+        return []
+    if period == "today":
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return [Order.created_at >= start]
+    if period == "yesterday":
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday_start = today_start - timedelta(days=1)
+        return [Order.created_at >= yesterday_start, Order.created_at < today_start]
+    if period == "last_week":
+        start = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+        return [Order.created_at >= start]
+    raise ValueError(f"Unknown period: {period}")
+
 
 class DashboardService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_analytics_summary(self) -> AnalyticsSummaryResponse:
-        # Total Revenue (sum of total_amount_include_tax for COMPLETED payments)
-        # Note: Depending on business logic, might filter by date range.
-        # Assuming "all time" or "today" based on requirements. User didn't specify, assumes all time or recent?
-        # Usually dashboard headers are "Today" or specific. The response example has 42500, lets assume all time for now or standard.
+    async def get_analytics_summary(self, period: DashboardPeriod) -> AnalyticsSummaryResponse:
+        time_filters = _time_filters_for_period(period)
+        base = [Order.payment_status == PaymentStatus.COMPLETED, *time_filters]
 
-        stmt_revenue = select(func.sum(Order.total_amount_include_tax)).where(
-            Order.payment_status == PaymentStatus.COMPLETED
-        )
-        total_revenue = (await self.db.execute(stmt_revenue)).scalar() or 0.0
+        amt = Order.total_amount_include_tax
+        stmt = select(
+            func.coalesce(func.sum(amt), 0),
+            func.count(Order.id),
+            func.coalesce(
+                func.sum(case((Order.order_type == OrderType.DINEIN, 1), else_=0)), 0
+            ),
+            func.coalesce(
+                func.sum(case((Order.order_type == OrderType.TAKEAWAY, 1), else_=0)), 0
+            ),
+            func.coalesce(
+                func.sum(case((Order.payment_method == PaymentMethod.QR, amt), else_=0)), 0
+            ),
+            func.coalesce(
+                func.sum(case((Order.payment_method == PaymentMethod.CARD, amt), else_=0)), 0
+            ),
+            func.coalesce(
+                func.sum(case((Order.payment_method == PaymentMethod.CASH, amt), else_=0)), 0
+            ),
+            func.coalesce(
+                func.sum(case((Order.payment_method == PaymentMethod.MANUAL, amt), else_=0)), 0
+            ),
+        ).where(*base)
 
-        # Total Orders
-        stmt_count = select(func.count(Order.id))
-        total_orders = (await self.db.execute(stmt_count)).scalar() or 0
+        row = (await self.db.execute(stmt)).one()
+        (
+            total_revenue,
+            total_orders,
+            dine_in,
+            take_away,
+            upi,
+            card,
+            cash,
+            manual,
+        ) = row
 
-        # Pending Payments
-        stmt_pending = select(func.count(Order.id)).where(
-            Order.payment_status == PaymentStatus.PENDING
-        )
-        pending_payments = (await self.db.execute(stmt_pending)).scalar() or 0
-
-        # Sync Failures (KDS Status FAILED)
-        stmt_failures = select(func.count(Order.id)).where(
-            Order.kds_status == KdsStatus.FAILED
-        )
-        sync_failures = (await self.db.execute(stmt_failures)).scalar() or 0
+        def _f(v) -> float:
+            return float(v or 0)
 
         return AnalyticsSummaryResponse(
-            totalRevenue=total_revenue,
-            totalOrders=total_orders,
-            pendingPayments=pending_payments,
-            syncFailures=sync_failures
+            period=period,
+            totalRevenue=_f(total_revenue),
+            totalOrders=int(total_orders or 0),
+            dineInOrders=int(dine_in or 0),
+            takeAwayOrders=int(take_away or 0),
+            upiRupees=_f(upi),
+            cardRupees=_f(card),
+            cashRupees=_f(cash),
+            manualRupees=_f(manual),
         )
 
     async def get_orders_grid(
@@ -54,12 +101,16 @@ class DashboardService:
         size: int,
         sort_by: str,
         sort_dir: str,
+        period: DashboardPeriod,
         status: Optional[str] = None,
-        search: Optional[str] = None
+        search: Optional[str] = None,
     ) -> OrderGridResponse:
 
         # Base Query
         stmt = select(Order)
+
+        for cond in _time_filters_for_period(period):
+            stmt = stmt.where(cond)
 
         # Filtering
         if status:

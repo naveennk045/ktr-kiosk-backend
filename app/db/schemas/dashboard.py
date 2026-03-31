@@ -1,13 +1,21 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime
 from app.db.models.order import PaymentStatus
 
+DashboardPeriod = Literal["today", "yesterday", "last_week", "all_time"]
+
 class AnalyticsSummaryResponse(BaseModel):
+    """Completed orders only; time window is in Asia/Kolkata (IST)."""
+    period: DashboardPeriod
     totalRevenue: float
     totalOrders: int
-    pendingPayments: int
-    syncFailures: int
+    dineInOrders: int
+    takeAwayOrders: int
+    upiRupees: float
+    cardRupees: float
+    cashRupees: float
+    manualRupees: float
 
 class OrderGridItem(BaseModel):
     orderRefId: str

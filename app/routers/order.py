@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.db.schemas.order import OrderCreateRequest, OrderCreateResponse
 from app.core.dependencies import get_order_service, get_db
 from app.services.order_service import OrderService
@@ -57,11 +57,17 @@ async def get_orders(
     size: int = 20,
     sortBy: str = "created_at",
     sortDir: str = "desc",
+    period: DashboardPeriod = Query(
+        "all_time",
+        description="Same IST windows as /analytics/summary.",
+    ),
     status: Optional[str] = None,
     search: Optional[str] = None,
-    service: DashboardService = Depends(get_dashboard_service)
+    service: DashboardService = Depends(get_dashboard_service),
 ):
-    return await service.get_orders_grid(page, size, sortBy, sortDir, status, search)
+    return await service.get_orders_grid(
+        page, size, sortBy, sortDir, period, status, search
+    )
 
 @router.get("/{order_id}", response_model=OrderDetailResponse)
 async def get_order_detail(

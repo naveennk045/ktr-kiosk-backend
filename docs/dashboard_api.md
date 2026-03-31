@@ -2,21 +2,35 @@
 
 This document references the APIs used by the Admin Dashboard.
 
+**Frontend implementation guide** (requests, responses, UX, copy-paste build prompt): see [`frontend_dashboard_guide.md`](./frontend_dashboard_guide.md).
+
 ## 1. Analytics (KPI Header)
 
 ### Get Analytics Summary
 **Endpoint**: `GET /analytics/summary`
-**Purpose**: Fetches top-level metrics for the dashboard header.
+**Purpose**: Business KPIs for **completed orders only**, in **Asia/Kolkata (IST)**. KDS / pending counts are not included.
+
+**Query Parameters**:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `period` | str | `all_time` | `today` — from today 00:00 IST through now; `yesterday` — full previous IST calendar day; `last_week` — from 00:00 seven days ago through now; `all_time` — no date filter |
 
 **Response**:
 ```json
 {
+  "period": "today",
   "totalRevenue": 42500.00,
   "totalOrders": 120,
-  "pendingPayments": 3,
-  "syncFailures": 5
+  "dineInOrders": 70,
+  "takeAwayOrders": 50,
+  "upiRupees": 20000.00,
+  "cardRupees": 15000.00,
+  "cashRupees": 7500.00,
+  "manualRupees": 0.00
 }
 ```
+
+`upiRupees` maps from stored payment method `QR` (UPI QR). `manualRupees` is the `MANUAL` payment method if used.
 
 ---
 
@@ -24,7 +38,7 @@ This document references the APIs used by the Admin Dashboard.
 
 ### Master Order Grid
 **Endpoint**: `GET /orders`
-**Purpose**: Fetches a paginated list of orders with sorting and filtering options.
+**Purpose**: Paginated list of orders with the **same `period` windows** as `/analytics/summary` (filters by `created_at` in IST).
 
 **Query Parameters**:
 | Parameter | Type | Default | Description |
@@ -33,6 +47,7 @@ This document references the APIs used by the Admin Dashboard.
 | `size` | int | 20 | Items per page |
 | `sortBy` | str | `created_at` | Field to sort by (`created_at`, `total_amount`) |
 | `sortDir` | str | `desc` | Sort direction (`asc`, `desc`) |
+| `period` | str | `all_time` | Same as analytics: `today`, `yesterday`, `last_week`, `all_time` |
 | `status` | str | null | Filter by payment status (e.g., `PENDING`, `COMPLETED`) |
 | `search` | str | null | Search by Order ID (e.g., `KTR-80...`) |
 
