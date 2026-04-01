@@ -82,7 +82,8 @@ ITEM_IMAGES: Dict[str, str] = {
     # Davangere dosa
     "1301947633":"https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1774708817/DavangiriOpenDOse_qoutpb.jpg",
     "1301947634" : "https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1775058175/davanagere-masala-dosa_bj7bqx.jpg",
-    "1301947636" : "https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1775058175/davangere-sada-dosa_avixem.jpg"
+    "1301947636" : "https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1775058175/davangere-sada-dosa_avixem.jpg",
+    "1301947635" : "https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1774708817/DavangeriKhali_kp8gaf.jpg"
 
 }
 
