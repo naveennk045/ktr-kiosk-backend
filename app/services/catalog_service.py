@@ -32,6 +32,7 @@ CATEGORY_IMAGES: Dict[str, str] = {
     "9534541": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1767032825/Rice_j5hjnu.jpg",
     "9593393": "",
     "9593400": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774711037/Gemini_Generated_Image_v6u8odv6u8odv6u8_smbylt.png",
+    "9534537"  : "https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1774708817/DavangeriKhali_kp8gaf.jpg"
 }
 
 # ---------------------------------------------------------------------------
@@ -45,7 +46,7 @@ ITEM_IMAGES: Dict[str, str] = {
     "1301947628": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774714101/bengaluru-benne-idli-banashankari-3rd-stage-bangalore-south-indian-restaurants-js26nx1tfc_xp17lb.jpg",  # Benne Thatte Idli
     "1301947629": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/GheePudiThateidli_z1biaa.jpg",  # Ghee Pudi Thatte Idli
     "1301947630": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708815/GheePudiThateidli_z1biaa.jpg",  # Ghee Pudi Idli
-    "1301947631": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774713915/best-thatte-idli-in-bangalore-breakfast-cafes_xzynez.jpg",  # Thatte Idli
+    "1301947631": "https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1775058483/thatte-idli_lzijos.jpg",  # Thatte Idli
     "1301947632": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708816/IdliChuntey_p4lkub.jpg",         # Idli Chutney
     # Wada / Snacks
     "1301947645": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774708820/DalVada_vtjpgg.jpg",             # Dal Vada
@@ -77,6 +78,11 @@ ITEM_IMAGES: Dict[str, str] = {
     "1302832749": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712193/Totebag_pm8fji.jpg",             # Tote Bags
     "1302832750": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712194/Tshirts_uk4dlg.jpg",             # T-shirts
     "1302832198": "https://res.cloudinary.com/dr01mnmi7/image/upload/v1774712199/Postcards_dqk4vf.jpg",
+
+    # Davangere dosa
+    "1301947633":"https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1774708817/DavangiriOpenDOse_qoutpb.jpg",
+    "1301947634" : "https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1775058175/davanagere-masala-dosa_bj7bqx.jpg",
+    "1301947636" : "https://res.cloudinary.com/dr01mnmi7/image/upload/q_auto/f_auto/v1775058175/davangere-sada-dosa_avixem.jpg"
 
 }
 
