@@ -30,7 +30,9 @@ async def create_order(
             amount_with_tax=new_order.total_amount_include_tax,
             amount_without_tax=new_order.total_amount_exclude_tax,
             kot_code=new_order.kot_code,
-            order_type=new_order.order_type
+            order_type=new_order.order_type,
+            takeaway_charges_without_tax=float(new_order.takeaway_charges_exclude_tax),
+            takeaway_charges_with_tax=float(new_order.takeaway_charges_include_tax),
         )
 
     except ValueError as e:

@@ -1,7 +1,7 @@
 import enum
 from sqlalchemy import (
     Column, Integer, String, DateTime, Enum,
-    UniqueConstraint, Date, Numeric, Index
+    UniqueConstraint, Date, Numeric, Index, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
@@ -48,6 +48,17 @@ class Order(Base):
 
     total_amount_exclude_tax = Column(Numeric(10, 2), nullable=False)
     total_amount_include_tax = Column(Numeric(10, 2), nullable=False)
+
+    takeaway_charges_exclude_tax = Column(
+        Numeric(10, 2),
+        nullable=False,
+        server_default=text("0"),
+    )
+    takeaway_charges_include_tax = Column(
+        Numeric(10, 2),
+        nullable=False,
+        server_default=text("0"),
+    )
 
     kot_date = Column(Date, index=True, nullable=False)
     kot_number = Column(Integer, nullable=False)

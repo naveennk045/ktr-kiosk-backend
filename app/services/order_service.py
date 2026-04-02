@@ -13,6 +13,7 @@ from app.db.schemas.order import OrderCreateRequest
 from app.services.catalog_service import CatalogService
 from app.services.petpooja_payload_builder import PetpoojaPayloadBuilder
 from app.utils.petpooja import PetpoojaClient
+from app.utils.takeaway_charges import compute_takeaway_charges
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,35 @@ class OrderService:
                 "addon_items": addon_items_list,
             })
 
+        qty_sum = sum(line.quantity for line in request.items)
+
+        if request.order_type == OrderType.DINEIN:
+            if abs(request.takeaway_charges_without_tax) > 0.01 or abs(
+                request.takeaway_charges_with_tax
+            ) > 0.01:
+                raise ValueError(
+                    "For DINEIN, takeaway_charges_without_tax and takeaway_charges_with_tax must be 0"
+                )
+            tw_exc, tw_inc = 0.0, 0.0
+        else:
+            tw_exc, tw_inc = compute_takeaway_charges(qty_sum)
+            client_sent = (
+                abs(request.takeaway_charges_without_tax) > 0.01
+                or abs(request.takeaway_charges_with_tax) > 0.01
+            )
+            if client_sent:
+                if abs(request.takeaway_charges_without_tax - tw_exc) > 0.05 or abs(
+                    request.takeaway_charges_with_tax - tw_inc
+                ) > 0.05:
+                    raise ValueError(
+                        "Takeaway charges must match server calculation: "
+                        f"takeaway_charges_without_tax={tw_exc:.2f}, "
+                        f"takeaway_charges_with_tax={tw_inc:.2f}"
+                    )
+
+        backend_total_exc += tw_exc
+        backend_total_inc += tw_inc
+
         # 3. Generate IDs
         full_uuid = str(uuid.uuid4()).upper()
         order_id = f"KTR-{full_uuid[0:8]}{full_uuid[10:12]}"
@@ -111,6 +141,8 @@ class OrderService:
             items=items_for_db,
             total_amount_exclude_tax=math.ceil(backend_total_exc),
             total_amount_include_tax=math.ceil(backend_total_inc),
+            takeaway_charges_exclude_tax=tw_exc,
+            takeaway_charges_include_tax=tw_inc,
             kot_date=kot_date,
             kot_number=kot_number,
             kot_code=kot_code,

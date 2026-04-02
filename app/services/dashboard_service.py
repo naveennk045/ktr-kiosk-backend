@@ -200,6 +200,12 @@ class DashboardService:
             erpStatus=order.kds_status,
             items=order.items,
             paymentMeta=order.provider_resp,
-            createdAt=order.created_at
+            createdAt=order.created_at,
+            takeaway_charges_without_tax=float(
+                getattr(order, "takeaway_charges_exclude_tax", 0) or 0
+            ),
+            takeaway_charges_with_tax=float(
+                getattr(order, "takeaway_charges_include_tax", 0) or 0
+            ),
         )
 

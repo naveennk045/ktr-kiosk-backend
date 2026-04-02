@@ -6,6 +6,14 @@ from app.db.models.order import Order, OrderType
 from app.utils.tax_utils import money, find_item, build_sale_item
 
 
+def _order_takeaway_exc_inc(order: Order) -> tuple[float, float]:
+    exc = getattr(order, "takeaway_charges_exclude_tax", None)
+    inc = getattr(order, "takeaway_charges_include_tax", None)
+    if exc is None or inc is None:
+        return 0.0, 0.0
+    return float(exc), float(inc)
+
+
 class PetpoojaPayloadBuilder:
     """
     Builds the Petpooja JSON orderinfo payload from an Order and its catalog.
@@ -38,6 +46,11 @@ class PetpoojaPayloadBuilder:
 
         order_items, tax_aggregation = self._build_order_items(catalog_items, tax_index)
         final_global_taxes = self._format_global_taxes(tax_aggregation)
+
+        tw_exc, tw_inc = _order_takeaway_exc_inc(self.order)
+        packing_tax = money(tw_inc - tw_exc) if tw_inc > 0 and tw_exc >= 0 else 0.0
+        item_tax_sum = sum(float(t["tax"]) for t in final_global_taxes)
+        tax_total_all = money(item_tax_sum + packing_tax)
 
         # FIX #1: Use consistent timestamp for immediate orders.
         # When advanced_order = "N", preorder_date/time must match created_on.
@@ -86,10 +99,10 @@ class PetpoojaPayloadBuilder:
                             "dc_tax_amount": "0",
                             "dc_gst_details": [],
 
-                            # Packing charges
-                            "packing_charges": "0",
-                            "pc_tax_amount": "0",
-                            "pc_tax_percentage": "0",
+                            # Packing / takeaway charges (same bucket as Petpooja packing)
+                            "packing_charges": str(money(tw_exc)) if tw_exc > 0 else "0",
+                            "pc_tax_amount": str(packing_tax) if packing_tax > 0 else "0",
+                            "pc_tax_percentage": "5" if tw_exc > 0 else "0",
                             "pc_gst_details": [],
 
                             # Order metadata
@@ -103,7 +116,7 @@ class PetpoojaPayloadBuilder:
 
                             # Totals
                             "discount_total": "0",
-                            "tax_total": str(sum(float(t["tax"]) for t in final_global_taxes)),
+                            "tax_total": str(tax_total_all),
                             "discount_type": "F",
                             "total": str(self.order.total_amount_include_tax),
 

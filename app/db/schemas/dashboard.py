@@ -43,3 +43,5 @@ class OrderDetailResponse(BaseModel):
     items: list
     paymentMeta: Optional[dict] = None
     createdAt: datetime
+    takeaway_charges_without_tax: float = 0
+    takeaway_charges_with_tax: float = 0

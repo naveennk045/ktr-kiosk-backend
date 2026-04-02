@@ -29,6 +29,10 @@ class OrderCreateRequest(BaseModel):
     items: List[OrderItemCreate]
     total_amount_include_tax: float
     total_amount_exclude_tax: float
+    # Takeaway: send 0 for DINEIN. For TAKEAWAY, optional; server recalculates — if you send
+    # non-zero values they must match server totals within tolerance.
+    takeaway_charges_without_tax: float = 0
+    takeaway_charges_with_tax: float = 0
 
 class OrderCreateResponse(BaseModel):
     order_id: str
@@ -36,5 +40,7 @@ class OrderCreateResponse(BaseModel):
     amount_without_tax: float = Field(serialization_alias="total_amount_exclude_tax")
     kot_code: str
     order_type: OrderType
+    takeaway_charges_without_tax: float
+    takeaway_charges_with_tax: float
 
     model_config = ConfigDict(populate_by_name=True)
