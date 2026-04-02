@@ -7,6 +7,7 @@ from app.core.dependencies import get_db, get_redis_client
 from app.db.models.edc_config import EdcConfig
 from app.db.models.item_availability import ItemAvailability
 from app.db.models.order import Order
+from app.db.models.cash_pin import CashPin
 from app.db.schemas.admin import ItemAvailabilityUpdate, ItemAvailabilityResponse
 from typing import List
 from pydantic import BaseModel
@@ -33,6 +34,7 @@ class TransactionResponse(BaseModel):
     created_at: datetime
     provider_resp: dict | None
     provider_code: str | None
+    cash_collected_by_staff_name: str | None = None
 
     class Config:
         from_attributes = True
@@ -63,8 +65,30 @@ async def get_transactions(
             amount=o.total_amount_include_tax,
             payment_status=o.payment_status,
             payment_method=o.payment_method,
-        ) for o in orders
+            created_at=o.created_at,
+            provider_resp=o.provider_resp,
+            provider_code=o.provider_code,
+            cash_collected_by_staff_name=o.cash_collected_by_staff_name,
+        )
+        for o in orders
     ]
+
+
+class CashPinStaff(BaseModel):
+    """Staff entries (PIN values are not returned; manage PINs via DB or a secure tool)."""
+    id: int
+    staff_name: str
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/cash-pins", response_model=List[CashPinStaff])
+async def list_cash_pins(db: AsyncSession = Depends(get_db)):
+    """List registered cash-collection staff (id + name)."""
+    stmt = select(CashPin).order_by(CashPin.id)
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 @router.get("/catalog/availability", response_model=List[ItemAvailabilityResponse])
 async def get_item_availabilities(db: AsyncSession = Depends(get_db)):

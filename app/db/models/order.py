@@ -1,6 +1,6 @@
 import enum
 from sqlalchemy import (
-    Column, Integer, String, DateTime, Enum,
+    Column, Integer, String, DateTime, Enum, ForeignKey,
     UniqueConstraint, Date, Numeric, Index, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -78,6 +78,9 @@ class Order(Base):
     provider_txn_id = Column(String, nullable=True, index=True)
     provider_reference_id = Column(String, nullable=True)
     provider_resp = Column(JSONB, nullable=True)
+
+    cash_pin_id = Column(Integer, ForeignKey("cash_pin.id"), nullable=True, index=True)
+    cash_collected_by_staff_name = Column(String(255), nullable=True)
 
     qr_string = Column(String, nullable=True)
     qr_expires_at = Column(DateTime(timezone=True), nullable=True)

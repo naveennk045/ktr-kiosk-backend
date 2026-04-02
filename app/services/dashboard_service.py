@@ -207,5 +207,8 @@ class DashboardService:
             takeaway_charges_with_tax=float(
                 getattr(order, "takeaway_charges_include_tax", 0) or 0
             ),
+            cash_collected_by_staff_name=getattr(
+                order, "cash_collected_by_staff_name", None
+            ),
         )
 

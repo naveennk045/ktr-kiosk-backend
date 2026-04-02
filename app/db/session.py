@@ -8,6 +8,7 @@ class Base(DeclarativeBase):
 
 from app.db.models.order import Order # noqa
 from app.db.models.menu import Menu # noqa
+from app.db.models.cash_pin import CashPin # noqa
 
 from sqlalchemy.engine.url import make_url
 

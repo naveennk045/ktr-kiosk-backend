@@ -199,8 +199,16 @@ Check the status of a QR transaction.
 
 ## 5. Cash Payment API
 
+### Staff PINs (`cash_pin` table)
+
+Cash collection is authorized by a **PIN** stored in PostgreSQL table **`cash_pin`**: columns **`pin`** (unique) and **`staff_name`**. On successful cash payment, the order stores **`cash_collected_by_staff_name`** and **`cash_pin_id`** for audit.
+
+- Seed or migrate rows with SQL (see `scripts/cash_pin_migration.sql`).
+- **`GET /admin/cash-pins`** returns registered staff **`id`** and **`staff_name`** only (PINs are not listed).
+
 ### Initiate Cash Payment
-Record a cash payment for an order. This immediately marks the order as COMPLETED and syncs to KDS.
+
+Record a cash payment for an order. This immediately marks the order as **COMPLETED** and syncs to KDS.
 
 **Endpoint**: `POST /payments/cash/init`
 
@@ -209,11 +217,13 @@ Record a cash payment for an order. This immediately marks the order as COMPLETE
 {
   "order_id": "KTR-F5C9871E0C",
   "amount_paise": 42000,
-  "store_id": "KTRVER01"
+  "terminal_id": null,
+  "pin": "1234"
 }
 ```
 
-**Response**:
+**Response** (shape varies; includes `provider_raw` with `staff_name` when cash succeeds):
+
 ```json
 {
   "order_id": "KTR-F5C9871E0C",

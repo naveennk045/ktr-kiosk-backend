@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     PINELABS_EDC_USER_ID: str
 
 
-#  Cash Payment PIN
+#  Deprecated: cash auth uses `cash_pin` table (see PaymentService.initiate_cash).
     CASH_PAYMENT_PIN: str = "1234"
 
 

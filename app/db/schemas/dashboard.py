@@ -45,3 +45,4 @@ class OrderDetailResponse(BaseModel):
     createdAt: datetime
     takeaway_charges_without_tax: float = 0
     takeaway_charges_with_tax: float = 0
+    cash_collected_by_staff_name: Optional[str] = None

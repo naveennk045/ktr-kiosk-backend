@@ -13,4 +13,5 @@ PyJWT
 cryptography
 redis>=5.0.1
 pydantic
+tzdata
 gunicorn

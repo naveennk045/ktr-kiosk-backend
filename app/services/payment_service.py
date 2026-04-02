@@ -13,6 +13,7 @@ from app.utils.phonepe import (
     compute_x_verify_for_endpoint, compute_qr_expiry,
 )
 from app.db.models.order import Order, PaymentStatus, KdsStatus, PaymentMethod
+from app.db.models.cash_pin import CashPin
 from app.db.models.edc_config import EdcConfig
 from app.services.order_service import OrderService
 from app.services.catalog_service import CatalogService
@@ -189,7 +190,13 @@ class PaymentService:
 
     # --- CASH LOGIC ---
     async def initiate_cash(self, order_id: str, amount_paise: int, terminal_id: Optional[str] = None, pin: str = ""):
-        if pin != settings.CASH_PAYMENT_PIN:
+        pin_norm = (pin or "").strip()
+        if not pin_norm:
+            raise HTTPException(status_code=401, detail="PIN is required for cash payment")
+
+        cp_stmt = select(CashPin).where(CashPin.pin == pin_norm)
+        cash_pin = (await self.db.execute(cp_stmt)).scalar_one_or_none()
+        if not cash_pin:
             raise HTTPException(status_code=401, detail="Invalid PIN for cash payment")
 
         stmt = select(Order).where(Order.order_id == order_id)
@@ -200,12 +207,25 @@ class PaymentService:
         if order.payment_status == PaymentStatus.COMPLETED:
             return order
 
+        expected_paise = int(round(float(order.total_amount_include_tax) * 100))
+        if amount_paise != expected_paise:
+            raise HTTPException(
+                status_code=400,
+                detail=f"amount_paise must be {expected_paise} (order total in paise)",
+            )
+
         order.terminal_id = terminal_id
         order.payment_method = PaymentMethod.CASH
         order.payment_status = PaymentStatus.COMPLETED
+        order.cash_pin_id = cash_pin.id
+        order.cash_collected_by_staff_name = cash_pin.staff_name
         order.provider_txn_id = f"CASH-{order_id}"
         order.provider_code = "SUCCESS"
-        order.provider_resp = {"message": "Cash payment recorded"}
+        order.provider_resp = {
+            "message": "Cash payment recorded",
+            "staff_name": cash_pin.staff_name,
+            "cash_pin_id": cash_pin.id,
+        }
 
         await self.db.commit()
         await self.db.refresh(order)
