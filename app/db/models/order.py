@@ -32,13 +32,21 @@ class Order(Base):
     __tablename__ = "orders"
     __table_args__ = (
         UniqueConstraint("order_id", name="uq_orders_order_id"),
-        UniqueConstraint("kot_date", "kot_number", name="uq_orders_kot_per_day"),
+        UniqueConstraint(
+            "store_id", "kot_date", "kot_number", name="uq_orders_kot_per_store_day"
+        ),
         Index("idx_orders_report", "created_at", "payment_status", "order_type"),
         Index("idx_orders_kds_sync", "payment_status", "kds_status"),
         Index("idx_orders_items_gin", "items", postgresql_using="gin"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    store_id = Column(
+        Integer,
+        ForeignKey("stores.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     order_id = Column(String, index=True, nullable=False)
     channel = Column(String, index=True, nullable=False)
 

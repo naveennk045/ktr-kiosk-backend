@@ -3,20 +3,28 @@ import httpx
 import redis.asyncio as redis
 from datetime import datetime, timezone
 from typing import Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
 from app.core.config import settings
 from app.utils.phonepe import (
-    make_base64, make_hash,
-    compute_x_verify_for_endpoint, compute_qr_expiry,
+    make_base64,
+    make_hash,
+    compute_x_verify_for_endpoint,
+    compute_qr_expiry,
 )
-from app.db.models.order import Order, PaymentStatus, KdsStatus, PaymentMethod
+from app.db.models.order import Order, PaymentStatus, PaymentMethod
 from app.db.models.cash_pin import CashPin
-from app.db.models.edc_config import EdcConfig
+from app.db.models.store import KioskTerminal, Store, StorePhonePeCredentials
 from app.services.order_service import OrderService
 from app.services.catalog_service import CatalogService
+from app.services.store_cache import (
+    get_phonepe_row_cached,
+    get_petpooja_credentials_cached,
+    get_pinelabs_shared_cached,
+)
 from app.utils.petpooja import PetpoojaClient
 from app.db.session import SessionLocal
 
@@ -25,16 +33,39 @@ logger = logging.getLogger(__name__)
 
 class PaymentService:
     def __init__(
-            self,
-            db: AsyncSession,
-            http_client: httpx.AsyncClient,
-            redis_client: redis.Redis,
-            order_service: OrderService
+        self,
+        db: AsyncSession,
+        http_client: httpx.AsyncClient,
+        redis_client: redis.Redis,
     ):
         self.db = db
         self.http_client = http_client
         self.redis_client = redis_client
-        self.order_service = order_service
+
+    async def _phonepe_for_order(self, order: Order) -> StorePhonePeCredentials:
+        row = await get_phonepe_row_cached(self.redis_client, self.db, order.store_id)
+        if not row:
+            raise HTTPException(
+                status_code=503,
+                detail="PhonePe credentials not configured for this store",
+            )
+        return row
+
+    async def _order_service_for_order(self, order: Order) -> OrderService:
+        store = await self.db.get(Store, order.store_id)
+        if not store:
+            raise HTTPException(status_code=500, detail="Order references missing store")
+        creds = await get_petpooja_credentials_cached(
+            self.redis_client, self.db, order.store_id
+        )
+        if not creds:
+            raise HTTPException(
+                status_code=503,
+                detail="Petpooja is not configured for this store",
+            )
+        petpooja = PetpoojaClient(self.http_client, creds)
+        catalog = CatalogService(self.redis_client, petpooja, store.id)
+        return OrderService(self.db, catalog, petpooja, store, creds)
 
     # --- QR LOGIC ---
     async def initiate_qr(self, order_id: str, amount_paise: int, terminal_id: Optional[str] = None):
@@ -50,26 +81,30 @@ class PaymentService:
             logger.info(f"Returning existing QR for pending order {order_id}")
             return order
 
+        pp = await self._phonepe_for_order(order)
+
         request_payload = {
             "amount": amount_paise,
             "expiresIn": 180,
-            "merchantId": settings.MERCHANT_ID,
+            "merchantId": pp.merchant_id,
             "merchantOrderId": order_id,
-            "storeId": getattr(settings, "STORE_ID", None),
-            "terminalId": getattr(settings, "TERMINAL_ID", None),
+            "storeId": pp.phonepe_store_id,
+            "terminalId": pp.terminal_id,
             "transactionId": order_id,
             "message": f"Payment for order {order_id}",
         }
         request_payload = {k: v for k, v in request_payload.items() if v is not None}
 
         base64_payload = make_base64(request_payload)
-        endpoint = settings.QR_INIT_ENDPOINT
-        x_verify = compute_x_verify_for_endpoint(base64_payload, endpoint, settings.SALT_KEY, settings.SALT_KEY_INDEX)
+        endpoint = settings.PHONEPE_QR_INIT_ENDPOINT
+        x_verify = compute_x_verify_for_endpoint(
+            base64_payload, endpoint, pp.salt_key, pp.salt_key_index
+        )
 
         headers = {
             "Content-Type": "application/json",
             "X-VERIFY": x_verify,
-            "X-PROVIDER-ID": settings.X_PROVIDER_ID,
+            "X-PROVIDER-ID": pp.x_provider_id,
             "X-CALLBACK-URL": settings.PHONEPE_CALLBACK_URL,
             "X-CALL-MODE": "POST",
         }
@@ -79,13 +114,18 @@ class PaymentService:
         url = settings.PHONEPE_BASE_URL + endpoint
 
         try:
-            resp = await self.http_client.post(url, json={"request": base64_payload}, headers=headers, timeout=30.0)
+            resp = await self.http_client.post(
+                url, json={"request": base64_payload}, headers=headers, timeout=30.0
+            )
             resp.raise_for_status()
             payload = resp.json()
 
             data_node = payload.get("data", {}) or {}
-            qr_string = data_node.get("qrCode") or data_node.get("qrString") or data_node.get("instrumentResponse",
-                                                                                              {}).get("qrData")
+            qr_string = (
+                data_node.get("qrCode")
+                or data_node.get("qrString")
+                or data_node.get("instrumentResponse", {}).get("qrData")
+            )
             code = payload.get("code")
 
             order.terminal_id = terminal_id
@@ -98,15 +138,22 @@ class PaymentService:
 
             expires_in = data_node.get("expiresIn") or 180
             if expires_in:
-                order.qr_expires_at = compute_qr_expiry(datetime.now(timezone.utc), int(expires_in))
+                order.qr_expires_at = compute_qr_expiry(
+                    datetime.now(timezone.utc), int(expires_in)
+                )
 
             await self.db.commit()
             await self.db.refresh(order)
             return order
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"QR Init HTTP Error: {e.response.status_code} - {e.response.text}")
-            raise HTTPException(status_code=e.response.status_code, detail=f"Payment Gateway Error: {e.response.text}")
+            logger.error(
+                f"QR Init HTTP Error: {e.response.status_code} - {e.response.text}"
+            )
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=f"Payment Gateway Error: {e.response.text}",
+            )
         except Exception as e:
             logger.error(f"QR Init Failed: {e}", exc_info=True)
             raise HTTPException(status_code=502, detail="Payment Gateway Error")
@@ -125,22 +172,34 @@ class PaymentService:
             logger.info(f"Returning existing EDC request for pending order {order_id}")
             return order
 
-        # Look up EdcConfig by terminal_id
-        edc_stmt = select(EdcConfig).where(EdcConfig.terminal_id == terminal_id)
-        edc_config = (await self.db.execute(edc_stmt)).scalar_one_or_none()
-        if not edc_config:
+        pl = await get_pinelabs_shared_cached(self.redis_client, self.db, order.store_id)
+        if not pl:
+            raise HTTPException(
+                status_code=503,
+                detail="PineLabs credentials not configured for this store",
+            )
+        kt_stmt = select(KioskTerminal).where(
+            KioskTerminal.store_id == order.store_id,
+            KioskTerminal.terminal_id == terminal_id,
+            KioskTerminal.is_active.is_(True),
+        )
+        kt = (await self.db.execute(kt_stmt)).scalar_one_or_none()
+        if not kt:
             raise HTTPException(
                 status_code=404,
-                detail=f"No EDC config found for terminal_id '{terminal_id}'. Please provide a valid terminal ID."
+                detail=(
+                    f"No kiosk terminal found for terminal_id '{terminal_id}' "
+                    f"for this store."
+                ),
             )
 
-        base_url = settings.PINELABS_EDC_BASE_URL.rstrip("/")
+        base_url = pl.base_url.rstrip("/")
         url = f"{base_url}/api/CloudBasedIntegration/V1/UploadBilledTransaction"
 
         try:
-            merchant_id = int(settings.PINELABS_EDC_MERCHANT_ID)
+            merchant_id = int(pl.merchant_id)
         except ValueError:
-            merchant_id = settings.PINELABS_EDC_MERCHANT_ID
+            merchant_id = pl.merchant_id
 
         request_payload = {
             "TransactionNumber": order_id,
@@ -148,11 +207,11 @@ class PaymentService:
             "AllowedPaymentMode": "1",
             "ClientID": terminal_id,
             "Amount": str(amount_paise),
-            "UserID": settings.PINELABS_EDC_USER_ID,
+            "UserID": pl.user_id,
             "MerchantID": merchant_id,
-            "StoreID": edc_config.store_id,
-            "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
-            "AutoCancelDurationInMinutes": 3
+            "StoreID": kt.pinelabs_store_id,
+            "SecurityToken": pl.security_token,
+            "AutoCancelDurationInMinutes": 3,
         }
 
         headers = {
@@ -194,15 +253,18 @@ class PaymentService:
         if not pin_norm:
             raise HTTPException(status_code=401, detail="PIN is required for cash payment")
 
-        cp_stmt = select(CashPin).where(CashPin.pin == pin_norm)
-        cash_pin = (await self.db.execute(cp_stmt)).scalar_one_or_none()
-        if not cash_pin:
-            raise HTTPException(status_code=401, detail="Invalid PIN for cash payment")
-
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
+
+        cp_stmt = select(CashPin).where(
+            CashPin.store_id == order.store_id,
+            CashPin.pin == pin_norm,
+        )
+        cash_pin = (await self.db.execute(cp_stmt)).scalar_one_or_none()
+        if not cash_pin:
+            raise HTTPException(status_code=401, detail="Invalid PIN for cash payment")
 
         if order.payment_status == PaymentStatus.COMPLETED:
             return order
@@ -230,7 +292,8 @@ class PaymentService:
         await self.db.commit()
         await self.db.refresh(order)
 
-        await self.order_service.sync_order_to_kds(order)
+        osvc = await self._order_service_for_order(order)
+        await osvc.sync_order_to_kds(order)
 
         return order
 
@@ -241,36 +304,41 @@ class PaymentService:
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
 
-        # 1. If final, try KDS
         if order.payment_status == PaymentStatus.COMPLETED:
-            await self.order_service.sync_order_to_kds(order)
+            osvc = await self._order_service_for_order(order)
+            await osvc.sync_order_to_kds(order)
             return order
 
-        # 2. Check Provider
         if order.payment_method == PaymentMethod.CARD:
-            # Pine Labs Status Check
             return await self._check_pinelabs_status(order)
-        else:
-            # PhonePe QR Status Check
-            return await self._check_phonepe_status(order)
+        return await self._check_phonepe_status(order)
 
     async def _check_pinelabs_status(self, order: Order):
-        base_url = settings.PINELABS_EDC_BASE_URL.rstrip("/")
+        pl = await get_pinelabs_shared_cached(self.redis_client, self.db, order.store_id)
+        if not pl:
+            raise HTTPException(
+                status_code=503,
+                detail="PineLabs credentials not configured for this store",
+            )
+        kt_stmt = select(KioskTerminal).where(
+            KioskTerminal.store_id == order.store_id,
+            KioskTerminal.terminal_id == order.terminal_id,
+            KioskTerminal.is_active.is_(True),
+        )
+        kt = (await self.db.execute(kt_stmt)).scalar_one_or_none()
+        if not kt:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No kiosk terminal found for terminal_id '{order.terminal_id}'.",
+            )
+
+        base_url = pl.base_url.rstrip("/")
         url = f"{base_url}/api/CloudBasedIntegration/V1/GetCloudBasedTxnStatus"
 
         try:
-            merchant_id = int(settings.PINELABS_EDC_MERCHANT_ID)
+            merchant_id = int(pl.merchant_id)
         except ValueError:
-            merchant_id = settings.PINELABS_EDC_MERCHANT_ID
-
-        # Look up EdcConfig by terminal_id to get StoreID
-        edc_stmt = select(EdcConfig).where(EdcConfig.terminal_id == order.terminal_id)
-        edc_config = (await self.db.execute(edc_stmt)).scalar_one_or_none()
-        if not edc_config:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No EDC config found for terminal_id '{order.terminal_id}'. Please provide a valid terminal ID."
-            )
+            merchant_id = pl.merchant_id
 
         plutus_ref_id = 0
         if order.provider_reference_id and order.provider_reference_id.isdigit():
@@ -278,10 +346,10 @@ class PaymentService:
 
         payload = {
             "MerchantID": merchant_id,
-            "SecurityToken": settings.PINELABS_EDC_SECURITY_TOKEN,
-            "StoreID": edc_config.store_id,
+            "SecurityToken": pl.security_token,
+            "StoreID": kt.pinelabs_store_id,
             "ClientID": order.terminal_id,
-            "PlutusTransactionReferenceID": plutus_ref_id
+            "PlutusTransactionReferenceID": plutus_ref_id,
         }
 
         headers = {"Content-Type": "application/json"}
@@ -310,7 +378,8 @@ class PaymentService:
                 await self.db.commit()
 
             if new_status == PaymentStatus.COMPLETED:
-                await self.order_service.sync_order_to_kds(order)
+                osvc = await self._order_service_for_order(order)
+                await osvc.sync_order_to_kds(order)
 
             return order
 
@@ -319,13 +388,14 @@ class PaymentService:
             return order
 
     async def _check_phonepe_status(self, order: Order):
-        endpoint = f"{settings.TRANSACTION_ENDPOINT}/{settings.MERCHANT_ID}/{order.order_id}/status"
+        pp = await self._phonepe_for_order(order)
+        endpoint = f"{settings.PHONEPE_TRANSACTION_ENDPOINT}/{pp.merchant_id}/{order.order_id}/status"
 
-        x_verify = make_hash(endpoint + settings.SALT_KEY) + f"###{settings.SALT_KEY_INDEX}"
+        x_verify = make_hash(endpoint + pp.salt_key) + f"###{pp.salt_key_index}"
         headers = {
             "Content-Type": "application/json",
             "X-VERIFY": x_verify,
-            "X-PROVIDER-ID": settings.X_PROVIDER_ID,
+            "X-PROVIDER-ID": pp.x_provider_id,
         }
         url = settings.PHONEPE_BASE_URL + endpoint
 
@@ -334,7 +404,6 @@ class PaymentService:
 
             data = resp.json()
             code = data.get("code")
-            success = data.get("success", False)
 
             new_status = PaymentStatus.PENDING
 
@@ -350,7 +419,8 @@ class PaymentService:
                 await self.db.commit()
 
             if new_status == PaymentStatus.COMPLETED:
-                await self.order_service.sync_order_to_kds(order)
+                osvc = await self._order_service_for_order(order)
+                await osvc.sync_order_to_kds(order)
 
             return order
 
@@ -362,10 +432,6 @@ class PaymentService:
             return order
 
     async def handle_webhook(self, merchant_order_id: str, code: str, payload: dict):
-        """
-        Logic for processing webhook notification.
-        Supports both background task and direct call.
-        """
         stmt = select(Order).where(Order.order_id == merchant_order_id)
         result = await self.db.execute(stmt)
         order = result.scalar_one_or_none()
@@ -385,28 +451,19 @@ class PaymentService:
         await self.db.refresh(order)
 
         if order.payment_status == PaymentStatus.COMPLETED:
-            await self.order_service.sync_order_to_kds(order)
-
-    # --- BACKGROUND TASK ---
+            osvc = await self._order_service_for_order(order)
+            await osvc.sync_order_to_kds(order)
 
     @staticmethod
     async def run_webhook_in_background(
-            merchant_order_id: str,
-            code: str,
-            payload: dict,
-            http_client: httpx.AsyncClient,
-            redis_client: redis.Redis,
+        merchant_order_id: str,
+        code: str,
+        payload: dict,
+        http_client: httpx.AsyncClient,
+        redis_client: redis.Redis,
     ):
-        """
-        Runs webhook processing in a background task with its own DB session.
-        Called by the PhonePe callback router via FastAPI BackgroundTasks.
-        """
         logger.info(f"Background webhook task running for order {merchant_order_id}...")
 
         async with SessionLocal() as db:
-            petpooja_client = PetpoojaClient(http_client)
-            catalog_service = CatalogService(redis_client, petpooja_client)
-            order_service = OrderService(db, catalog_service, petpooja_client)
-            payment_service = PaymentService(db, http_client, redis_client, order_service)
-
+            payment_service = PaymentService(db, http_client, redis_client)
             await payment_service.handle_webhook(merchant_order_id, code, payload)

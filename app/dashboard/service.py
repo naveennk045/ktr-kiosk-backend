@@ -39,12 +39,17 @@ def _time_filters_for_period(period: DashboardPeriod) -> list:
 
 
 class DashboardService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, store_id: int):
         self.db = db
+        self.store_id = store_id
 
     async def get_analytics_summary(self, period: DashboardPeriod) -> AnalyticsSummaryResponse:
         time_filters = _time_filters_for_period(period)
-        base = [Order.payment_status == PaymentStatus.COMPLETED, *time_filters]
+        base = [
+            Order.store_id == self.store_id,
+            Order.payment_status == PaymentStatus.COMPLETED,
+            *time_filters,
+        ]
 
         amt = Order.total_amount_include_tax
         stmt = select(
@@ -115,7 +120,7 @@ class DashboardService:
     ) -> OrderGridResponse:
 
         # Base Query
-        stmt = select(Order)
+        stmt = select(Order).where(Order.store_id == self.store_id)
 
         for cond in _time_filters_for_period(period):
             stmt = stmt.where(cond)
@@ -187,7 +192,10 @@ class DashboardService:
         )
 
     async def get_order_detail(self, order_id: str) -> Optional[OrderDetailResponse]:
-        stmt = select(Order).where(Order.order_id == order_id)
+        stmt = select(Order).where(
+            Order.order_id == order_id,
+            Order.store_id == self.store_id,
+        )
         order = (await self.db.execute(stmt)).scalar_one_or_none()
 
         if not order:

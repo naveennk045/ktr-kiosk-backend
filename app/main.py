@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import redis.asyncio as redis
 
-from app.db.session import engine, Base
+from app.db.session import engine, Base, SessionLocal
+from app.db.bootstrap import ensure_default_store
 from .routers import catalog, order, admin, petpooja
 from .routers.payment import payment
 from app.core.config import settings
@@ -37,6 +38,9 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     logger.info("PostgreSQL tables ensured.")
 
+    async with SessionLocal() as session:
+        await ensure_default_store(session)
+
     # Redis setup...
     try:
         app.state.redis_client = redis.from_url(
@@ -59,8 +63,31 @@ async def lifespan(app: FastAPI):
     logger.info("Resources cleaned up. Application shutting down.")
 
 
-# FastAPI App
-app = FastAPI(lifespan=lifespan)
+# FastAPI App (OpenAPI: GET /docs, GET /redoc)
+app = FastAPI(
+    lifespan=lifespan,
+    title="KTR Kiosk Server",
+    description=(
+        "Multi-store kiosk backend: catalog (Petpooja), orders, PhonePe QR, "
+        "Pine Labs EDC, cash PIN, dashboard reads, and Petpooja webhooks. "
+        "Per-store credentials are in PostgreSQL; env holds only DB/Redis and PhonePe API base URLs. "
+        "Most routes require `X-Store-Id` (numeric store id or `store_code`); "
+        "payment routes resolve the store from the order id. See docs/API.md."
+    ),
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "catalog", "description": "Menu catalog and Redis cache (requires X-Store-Id)."},
+        {"name": "orders", "description": "Create order (POST /orders/)."},
+        {"name": "dashboard", "description": "Order grid and detail for admin UI (GET /orders/)."},
+        {"name": "payments", "description": "PhonePe webhook (no X-Store-Id)."},
+        {"name": "Dynamic QR", "description": "PhonePe UPI QR init/status."},
+        {"name": "edc", "description": "Pine Labs EDC init/status."},
+        {"name": "cash", "description": "Cash payment with staff PIN."},
+        {"name": "analytics", "description": "IST KPI summary (requires X-Store-Id)."},
+        {"name": "admin", "description": "Kiosk config, cash-pins list, cache invalidation."},
+        {"name": "petpooja", "description": "Inbound menu push and callbacks."},
+    ],
+)
 
 app.add_middleware(
     CORSMiddleware,

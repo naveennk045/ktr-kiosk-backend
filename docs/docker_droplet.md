@@ -59,13 +59,15 @@ Build and push to Docker Hub / DO Container Registry, then on the Droplet only `
 
 ## 4. Configure environment variables
 
-Create `/opt/ktr-kiosk-backend/.env` (same variables as production; see `app/core/config.py` and `deploy.md`).
+Create `/opt/ktr-kiosk-backend/.env` (see `app/core/config.py`, `.env.example`, and `sandbox/deploy.md`).
 
 **Minimum pattern:**
 
 - `POSTGRES_DB_URL` — `postgresql+asyncpg://user:pass@host:25060/db?ssl=require` (Managed Postgres)
 - `REDIS_HOST` — full URL, e.g. `rediss://default:password@host:25061/0`
-- All PhonePe, Petpooja, Rista, Pine Labs keys as in your existing `.env.local`
+- PhonePe **API** only: `PHONEPE_BASE_URL`, `PHONEPE_CALLBACK_URL`, `PHONEPE_QR_INIT_ENDPOINT`, `PHONEPE_TRANSACTION_ENDPOINT`
+
+Per-store Petpooja, PhonePe merchant/salt, and PineLabs credentials belong in **PostgreSQL**, not in `.env` (seed with SQL after tables exist).
 
 **Important:** `pydantic-settings` reads **environment variables**. Values in `.env` loaded by Docker Compose are injected into the container — **do not commit `.env`**.
 

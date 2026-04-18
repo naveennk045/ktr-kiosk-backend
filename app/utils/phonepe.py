@@ -1,9 +1,9 @@
-import json
 import base64
 import hashlib
+import json
 from datetime import datetime, timedelta
 from typing import Any, Dict
-from app.core.config import settings
+
 
 def make_base64(json_obj: Dict[str, Any]) -> str:
     json_str = json.dumps(json_obj, separators=(',', ':'))
@@ -27,12 +27,23 @@ def compute_qr_expiry(now: datetime, expires_in_seconds: int) -> datetime:
     return now + timedelta(seconds=expires_in_seconds)
 
 
-def verify_phonepe_callback_hash(base64_payload: str) -> str:
+def verify_phonepe_callback_hash(
+    base64_payload: str,
+    salt_key: str | None = None,
+    salt_key_index: str | None = None,
+) -> str:
     """
     Computes the X-VERIFY hash for the S2S callback:
     SHA256(base64_payload + salt_key) + ### + salt_index
+
+    Salt must come from `store_phonepe_credentials` for the order's store (no env fallback).
     """
-    verification_str = base64_payload + settings.SALT_KEY
-    hashed_str = make_hash(verification_str)  # Uses your existing make_hash
-    return f"{hashed_str}###{settings.SALT_KEY_INDEX}"
+    if not salt_key or not salt_key_index:
+        raise ValueError(
+            "PhonePe callback verification requires salt from the order's store "
+            "(store_phonepe_credentials). Unknown order or missing credentials."
+        )
+    verification_str = base64_payload + salt_key
+    hashed_str = make_hash(verification_str)
+    return f"{hashed_str}###{salt_key_index}"
 

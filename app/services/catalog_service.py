@@ -89,9 +89,18 @@ ITEM_IMAGES: Dict[str, str] = {
 
 
 class CatalogService:
-    def __init__(self, redis_client: redis.Redis, petpooja_client: Optional[PetpoojaClient]):
+    def __init__(
+        self,
+        redis_client: redis.Redis,
+        petpooja_client: Optional[PetpoojaClient],
+        store_id: int,
+    ):
         self.redis = redis_client
         self.petpooja = petpooja_client
+        self.store_id = store_id
+
+    def _cache_key(self, channel: str) -> str:
+        return f"petpooja_catalog_data_{self.store_id}_{channel}"
 
     # ------------------------------------------------------------------
     # Public API
@@ -107,7 +116,7 @@ class CatalogService:
         'channel' scopes the cache key so different channels can have
         independent catalogs if needed in the future.
         """
-        cache_key = f"petpooja_catalog_data_{channel}"
+        cache_key = self._cache_key(channel)
 
         # 1. Redis cache
         try:
@@ -127,7 +136,7 @@ class CatalogService:
             try:
                 result = await db.execute(
                     select(Menu)
-                    .filter(Menu.provider == "petpooja")
+                    .filter(Menu.provider == "petpooja", Menu.store_id == self.store_id)
                     .order_by(Menu.id.desc())
                     .limit(1)
                 )
@@ -170,17 +179,18 @@ class CatalogService:
         logger.info(f"Processing and caching webhook menu for channel '{channel}'...")
         catalog_data = self._build_catalog(menu_data)
 
-        # Invalidate all existing channel caches (menu is global across channels)
+        # Invalidate this store's catalog caches (all channels)
         try:
-            keys = await self.redis.keys("petpooja_catalog_data_*")
+            pattern = f"petpooja_catalog_data_{self.store_id}_*"
+            keys = await self.redis.keys(pattern)
             if keys:
                 await self.redis.delete(*keys)
-                logger.info(f"Cleared {len(keys)} catalog cache key(s).")
+                logger.info(f"Cleared {len(keys)} catalog cache key(s) for store {self.store_id}.")
         except Exception as e:
             logger.error(f"Error clearing cache keys: {e}", exc_info=True)
 
         # Write updated cache for this channel
-        cache_key = f"petpooja_catalog_data_{channel}"
+        cache_key = self._cache_key(channel)
         try:
             await self.redis.set(cache_key, json.dumps(catalog_data), ex=86400)
             logger.info(f"Cached webhook menu for channel '{channel}' (TTL=24h).")
