@@ -29,7 +29,7 @@ This document is for anyone building the **admin analytics UI** against the KTR 
 | Paginated orders | `GET` | `/orders` |
 | Single order (drawer / modal) | `GET` | `/orders/{order_id}` |
 
-Optional later: `/admin/edc-config`, `/admin/catalog/availability` — not required for the main dashboard.
+Optional later: `/admin/edc-config` — not required for the main dashboard.
 
 ---
 
