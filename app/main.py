@@ -6,9 +6,10 @@ import httpx
 import redis.asyncio as redis
 
 from app.db.session import engine, Base
-from .routers import catalog, order, admin, dashboard, petpooja
+from .routers import catalog, order, admin, petpooja
 from .routers.payment import payment
 from app.core.config import settings
+from app.dashboard import analytics_router, orders_read_router
 
 # Configure Logging
 logging.basicConfig(
@@ -79,7 +80,8 @@ def read_root():
 # Routers
 app.include_router(catalog.router, prefix="/catalog", tags=["catalog"])
 app.include_router(order.router, prefix="/orders", tags=["orders"])
+app.include_router(orders_read_router, prefix="/orders", tags=["dashboard"])
 app.include_router(payment.router, prefix="/payments", tags=["payments"])
-app.include_router(dashboard.router, prefix="/analytics", tags=["analytics"])
+app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 app.include_router(admin.router)
 app.include_router(petpooja.router, prefix="/petpooja", tags=["petpooja"])

@@ -1,17 +1,19 @@
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+
 from sqlalchemy import select, func, desc, asc, case
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.models.order import Order, PaymentStatus, OrderType, PaymentMethod
-from app.db.schemas.dashboard import (
+from app.dashboard.schemas import (
     AnalyticsSummaryResponse,
     DashboardPeriod,
     OrderGridResponse,
     OrderGridItem,
     OrderDetailResponse,
 )
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -211,4 +213,3 @@ class DashboardService:
                 order, "cash_collected_by_staff_name", None
             ),
         )
-

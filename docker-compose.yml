@@ -1,0 +1,16 @@
+# Production-style run on a Droplet: app container + env from file.
+# Postgres / Redis: use DigitalOcean Managed Databases and set URLs in .env (see docs/docker_droplet.md).
+
+services:
+  api:
+    build: .
+    image: ktr-kiosk-backend:latest
+    container_name: ktr-kiosk-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      # Optional override; default in Dockerfile is 2
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
