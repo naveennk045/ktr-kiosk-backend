@@ -204,7 +204,7 @@ class PetpoojaPayloadBuilder:
         order_items = []
         tax_aggregation: Dict[str, Any] = {}
 
-        for item_spec in self.order.items:
+        for item_spec in self.order.item_specs_for_payload():
             # 1. Base Item Resolution
             src_item = find_item(catalog_items, item_spec.get("sku_code"))
             if not src_item:

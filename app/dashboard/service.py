@@ -5,6 +5,7 @@ from typing import Optional
 
 from sqlalchemy import select, func, desc, asc, case
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.models.order import Order, PaymentStatus, OrderType, PaymentMethod
 from app.dashboard.schemas import (
@@ -120,7 +121,11 @@ class DashboardService:
     ) -> OrderGridResponse:
 
         # Base Query
-        stmt = select(Order).where(Order.store_id == self.store_id)
+        stmt = (
+            select(Order)
+            .options(selectinload(Order.line_items))
+            .where(Order.store_id == self.store_id)
+        )
 
         for cond in _time_filters_for_period(period):
             stmt = stmt.where(cond)
@@ -158,12 +163,17 @@ class DashboardService:
         content = []
         for o in orders:
             item_names = []
-            for i in o.items or []:
-                if not isinstance(i, dict):
-                    continue
-                item_names.append(
-                    i.get("item_name") or i.get("name") or "Item"
-                )
+            lines = list(o.line_items) if o.line_items else []
+            if lines:
+                for li in sorted(lines, key=lambda x: x.id):
+                    item_names.append(li.item_name or "Item")
+            else:
+                for i in o.items or []:
+                    if not isinstance(i, dict):
+                        continue
+                    item_names.append(
+                        i.get("item_name") or i.get("name") or "Item"
+                    )
             summary_text = item_names[0] if item_names else "No Items"
             if len(item_names) > 1:
                 summary_text += f" (+{len(item_names)-1} more)"
@@ -192,14 +202,32 @@ class DashboardService:
         )
 
     async def get_order_detail(self, order_id: str) -> Optional[OrderDetailResponse]:
-        stmt = select(Order).where(
-            Order.order_id == order_id,
-            Order.store_id == self.store_id,
+        stmt = (
+            select(Order)
+            .options(selectinload(Order.line_items))
+            .where(
+                Order.order_id == order_id,
+                Order.store_id == self.store_id,
+            )
         )
         order = (await self.db.execute(stmt)).scalar_one_or_none()
 
         if not order:
             return None
+
+        if order.line_items:
+            detail_items = [
+                {
+                    "name": li.item_name,
+                    "qty": li.quantity,
+                    "price": float(li.price),
+                    "sku": li.item_skuid,
+                    "order_status": li.order_status.value,
+                }
+                for li in sorted(order.line_items, key=lambda x: x.id)
+            ]
+        else:
+            detail_items = order.items
 
         # Build detailed response
         return OrderDetailResponse(
@@ -208,7 +236,7 @@ class DashboardService:
             amount=float(order.total_amount_include_tax),
             paymentStatus=order.payment_status,
             erpStatus=order.kds_status,
-            items=order.items,
+            items=detail_items,
             paymentMeta=order.provider_resp,
             createdAt=order.created_at,
             takeaway_charges_without_tax=float(

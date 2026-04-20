@@ -6,8 +6,16 @@ from typing import Dict
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.db.models.order import Order, PaymentStatus, KdsStatus, OrderType
+from app.db.models.order import (
+    Order,
+    OrderItem,
+    OrderItemStatus,
+    OrderType,
+    PaymentStatus,
+    KdsStatus,
+)
 from app.db.models.kot_counter import KotCounter
 from app.db.models.store import Store
 from app.db.schemas.order import OrderCreateRequest
@@ -137,13 +145,13 @@ class OrderService:
         order_id = f"KTR-{full_uuid[0:8]}{full_uuid[10:12]}"
         kot_date, kot_number, kot_code = await self._generate_next_kot()
 
-        # 4. Create Order Object
+        # 4. Create order header (lines live in `order_items`)
         new_order = Order(
             store_id=self.store.id,
             order_id=order_id,
             channel=request.channel,
             order_type=request.order_type,
-            items=items_for_db,
+            items=[],
             total_amount_exclude_tax=math.ceil(backend_total_exc),
             total_amount_include_tax=math.ceil(backend_total_inc),
             takeaway_charges_exclude_tax=tw_exc,
@@ -156,6 +164,22 @@ class OrderService:
         )
 
         self.db.add(new_order)
+        await self.db.flush()
+
+        for spec in items_for_db:
+            self.db.add(
+                OrderItem(
+                    order_id=new_order.id,
+                    item_skuid=spec["sku_code"],
+                    item_name=(spec.get("item_name") or "")[:512],
+                    quantity=int(spec["quantity"]),
+                    price=spec["unit_price"],
+                    variation_id=spec.get("variation_id"),
+                    addon_items=spec.get("addon_items") or [],
+                    order_status=OrderItemStatus.NOT_ACCEPTED,
+                )
+            )
+
         await self.db.commit()
         await self.db.refresh(new_order)
         return new_order
@@ -183,6 +207,17 @@ class OrderService:
         """
         Posts the order to Petpooja.
         """
+        stmt = (
+            select(Order)
+            .options(selectinload(Order.line_items))
+            .where(Order.id == order.id)
+        )
+        row = (await self.db.execute(stmt)).scalar_one_or_none()
+        if not row:
+            logger.error("sync_order_to_kds: order id=%s not found", getattr(order, "id", None))
+            return False, None
+        order = row
+
         logger.info(f"Syncing order {order.order_id} to Petpooja...")
 
         if order.kds_status == KdsStatus.POSTED:
