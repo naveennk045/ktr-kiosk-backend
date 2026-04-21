@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List
 
 import redis.asyncio as redis
@@ -36,31 +37,54 @@ class KioskConfigResponse(BaseModel):
     terminals: List[KioskTerminalItem]
 
 
-@router.get("/kiosk-config", response_model=KioskConfigResponse)
-async def get_kiosk_config(
-    db: AsyncSession = Depends(get_db),
-    store: Store = Depends(get_store_context),
-):
-    """Kiosk / terminal configuration for the current store (PineLabs terminals + flags)."""
-    pl_stmt = select(StorePinelabsCredentials).where(
-        StorePinelabsCredentials.store_id == store.id
+@router.get("/kiosk-config", response_model=List[KioskConfigResponse])
+async def get_kiosk_config(db: AsyncSession = Depends(get_db)):
+    """
+    **All active stores** — metadata and PineLabs `kiosk_terminals` per outlet.
+
+    No `X-Store-Id` or query params: clients use this to discover `store_id`, store codes,
+    and terminal ids for configuration.
+    """
+    stmt = select(Store).where(Store.is_active.is_(True)).order_by(Store.id)
+    stores = (await db.execute(stmt)).scalars().all()
+    if not stores:
+        return []
+
+    store_ids = [s.id for s in stores]
+
+    pinelabs_store_ids = set(
+        (
+            await db.execute(
+                select(StorePinelabsCredentials.store_id).where(
+                    StorePinelabsCredentials.store_id.in_(store_ids)
+                )
+            )
+        ).scalars().all()
     )
-    pl = (await db.execute(pl_stmt)).scalar_one_or_none()
 
     t_stmt = (
         select(KioskTerminal)
-        .where(KioskTerminal.store_id == store.id)
-        .order_by(KioskTerminal.id)
+        .where(KioskTerminal.store_id.in_(store_ids))
+        .order_by(KioskTerminal.store_id, KioskTerminal.id)
     )
-    terminals = (await db.execute(t_stmt)).scalars().all()
+    terminals_all = (await db.execute(t_stmt)).scalars().all()
+    terminals_by_store: defaultdict[int, list] = defaultdict(list)
+    for t in terminals_all:
+        terminals_by_store[t.store_id].append(t)
 
-    return KioskConfigResponse(
-        store_id=store.id,
-        store_code=store.store_code,
-        store_name=store.store_name,
-        pinelabs_configured=pl is not None,
-        terminals=[KioskTerminalItem.model_validate(t) for t in terminals],
-    )
+    return [
+        KioskConfigResponse(
+            store_id=s.id,
+            store_code=s.store_code,
+            store_name=s.store_name,
+            pinelabs_configured=s.id in pinelabs_store_ids,
+            terminals=[
+                KioskTerminalItem.model_validate(term)
+                for term in terminals_by_store[s.id]
+            ],
+        )
+        for s in stores
+    ]
 
 
 class CashPinStaff(BaseModel):

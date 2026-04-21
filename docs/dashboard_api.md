@@ -108,29 +108,31 @@ This document focuses on the **Admin Dashboard** APIs.
 ### Kiosk / terminal config (Pine Labs)
 
 **Endpoint**: `GET /admin/kiosk-config`  
-**Header**: `X-Store-Id` (numeric id or `store_code`)
+**Headers**: none — returns **every** active store so the client can pick an outlet and read `store_id` / terminals.
 
-**Purpose**: Pine Labs–related setup for the current store: shared API credentials flag plus per-device **`kiosk_terminals`** (PineLabs Client ID, PineLabs Store ID, labels).
+**Purpose**: Pine Labs–related setup **per store**: shared API credentials flag plus per-device **`kiosk_terminals`** (PineLabs Client ID, PineLabs Store ID, labels).
 
-**Response** (shape; see OpenAPI `/docs` for exact model):
+**Response**: JSON **array** (one object per active store); see OpenAPI `/docs` for the exact model.
 
 ```json
-{
-  "store_id": 1,
-  "store_code": "KTR-BANDRA",
-  "store_name": "KTR Bandra",
-  "pinelabs_configured": true,
-  "terminals": [
-    {
-      "id": 1,
-      "terminal_id": "4724310",
-      "pinelabs_store_id": "1570451",
-      "mid_on_device": "741921",
-      "label": "KTR Bandra — terminal 1",
-      "is_active": true
-    }
-  ]
-}
+[
+  {
+    "store_id": 1,
+    "store_code": "KTR-BANDRA",
+    "store_name": "KTR Bandra",
+    "pinelabs_configured": true,
+    "terminals": [
+      {
+        "id": 1,
+        "terminal_id": "4724310",
+        "pinelabs_store_id": "1570451",
+        "mid_on_device": "741921",
+        "label": "KTR Bandra — terminal 1",
+        "is_active": true
+      }
+    ]
+  }
+]
 ```
 
 The legacy **`GET /admin/edc-config`** route has been replaced by this endpoint.

@@ -84,7 +84,10 @@ app = FastAPI(
         {"name": "edc", "description": "Pine Labs EDC init/status."},
         {"name": "cash", "description": "Cash payment with staff PIN."},
         {"name": "analytics", "description": "IST KPI summary (requires X-Store-Id)."},
-        {"name": "admin", "description": "Kiosk config, cash-pins list, cache invalidation."},
+        {
+            "name": "admin",
+            "description": "GET /admin/kiosk-config lists all stores (no X-Store-Id); cash-pins and cache invalidation require X-Store-Id.",
+        },
         {"name": "petpooja", "description": "Inbound menu push and callbacks."},
     ],
 )
