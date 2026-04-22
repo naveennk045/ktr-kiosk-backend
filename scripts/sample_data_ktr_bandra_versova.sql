@@ -6,7 +6,8 @@
 --
 -- Before running: replace all __PLACEHOLDER__ strings with values from `.env.local`
 -- (Petpooja, PhonePe, PineLabs). Use a distinct Petpooja `petpooja_restaurant_id` per
--- outlet — they must match the `restaurantid` inside each menu JSON (uq_petpooja_restaurant_id).
+-- outlet — `petpooja_restaurant_id` / menu JSON `restaurantid` for webhook routing.
+-- `menu_sharing_code` = Petpooja menu sharing code (same value as restID in APIs; often matches menu JSON).
 --
 -- Note: `salt_key_index` is VARCHAR(16) — use your real `SALT_KEY_INDEX` from env (often "1").
 --
@@ -32,10 +33,11 @@ BEGIN
         is_active = EXCLUDED.is_active;
   SELECT id INTO versova_id FROM stores WHERE store_code = 'KTR-VERSOVA';
 
-  -- Petpooja (one restaurant id per store; replace __PP_REST_*__ with real Petpooja IDs)
+  -- Petpooja (replace placeholders; menu_sharing_code = menu sharing code from Petpooja, used as restID)
   INSERT INTO store_petpooja_credentials (
     store_id, app_key, app_secret, access_token,
-    petpooja_restaurant_id, fetch_menu_url, create_order_url, callback_url
+    petpooja_restaurant_id, menu_sharing_code,
+    fetch_menu_url, create_order_url, callback_url
   ) VALUES
     (
       bandra_id,
@@ -43,6 +45,7 @@ BEGIN
       '__PETPOOJA_API_SECRET__',
       '__PETPOOJA_ACCESS_TOKEN__',
       '__PP_REST_BANDRA__',
+      '__PP_MENU_SHARING_BANDRA__',
       '__PETPOOJA_FETCH_MENU_URL__',
       '__PETPOOJA_CREATE_ORDER_URL__',
       '__PETPOOJA_CALLBACK_URL__'
@@ -53,6 +56,7 @@ BEGIN
       '__PETPOOJA_API_SECRET__',
       '__PETPOOJA_ACCESS_TOKEN__',
       '__PP_REST_VERSOVA__',
+      '__PP_MENU_SHARING_VERSOVA__',
       '__PETPOOJA_FETCH_MENU_URL__',
       '__PETPOOJA_CREATE_ORDER_URL__',
       '__PETPOOJA_CALLBACK_URL__'
@@ -62,6 +66,7 @@ BEGIN
     app_secret = EXCLUDED.app_secret,
     access_token = EXCLUDED.access_token,
     petpooja_restaurant_id = EXCLUDED.petpooja_restaurant_id,
+    menu_sharing_code = EXCLUDED.menu_sharing_code,
     fetch_menu_url = EXCLUDED.fetch_menu_url,
     create_order_url = EXCLUDED.create_order_url,
     callback_url = EXCLUDED.callback_url;
@@ -148,7 +153,7 @@ BEGIN
     (versova_id, '9584', 'Test');
 
   -- Minimal Petpooja-shaped menus (empty catalog until webhook or API fills real data).
-  -- `restaurantid` must match `petpooja_restaurant_id` for that store after you replace placeholders.
+  -- `restaurantid` should match webhook routing: `petpooja_restaurant_id` or `menu_sharing_code` in DB.
   DELETE FROM menus WHERE store_id IN (bandra_id, versova_id) AND provider = 'petpooja';
 
   INSERT INTO menus (store_id, provider, data) VALUES

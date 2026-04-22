@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Request, Depends
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db
@@ -82,7 +82,10 @@ async def petpooja_menu_push(
         }
 
     stmt = select(StorePetpoojaCredentials).where(
-        StorePetpoojaCredentials.petpooja_restaurant_id == rest_id
+        or_(
+            StorePetpoojaCredentials.petpooja_restaurant_id == rest_id,
+            StorePetpoojaCredentials.menu_sharing_code == rest_id,
+        )
     )
     ppc = (await db.execute(stmt)).scalar_one_or_none()
     if not ppc:
@@ -110,6 +113,7 @@ async def petpooja_menu_push(
                 app_secret=ppc.app_secret,
                 access_token=ppc.access_token,
                 restaurant_id=ppc.petpooja_restaurant_id,
+                menu_sharing_code=ppc.menu_sharing_code,
                 fetch_menu_url=ppc.fetch_menu_url,
                 create_order_url=ppc.create_order_url,
                 callback_url=ppc.callback_url,

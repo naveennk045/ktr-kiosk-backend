@@ -13,7 +13,10 @@ class PetpoojaCredentials:
     app_key: str
     app_secret: str
     access_token: str
+    # Internal / menu-JSON identifier (webhook routing vs petpooja_restaurant_id).
     restaurant_id: str
+    # Petpooja menu sharing code — sent as restID in fetch-menu and order payload.
+    menu_sharing_code: str
     fetch_menu_url: str
     create_order_url: str
     callback_url: str
@@ -27,6 +30,7 @@ class PetpoojaClient:
         self.app_secret = creds.app_secret
         self.access_token = creds.access_token
         self.restaurant_id = creds.restaurant_id
+        self.menu_sharing_code = creds.menu_sharing_code
 
     def _get_headers(self) -> Dict[str, str]:
         return {
@@ -41,7 +45,7 @@ class PetpoojaClient:
         Fetches the menu from Petpooja.
         """
         url = self.creds.fetch_menu_url
-        payload = {"restID": self.restaurant_id}
+        payload = {"restID": self.creds.menu_sharing_code}
 
         logger.info(f"Fetching Menu from Petpooja: {url}")
 

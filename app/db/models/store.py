@@ -58,6 +58,7 @@ class StorePetpoojaCredentials(Base):
     __tablename__ = "store_petpooja_credentials"
     __table_args__ = (
         UniqueConstraint("petpooja_restaurant_id", name="uq_petpooja_restaurant_id"),
+        UniqueConstraint("menu_sharing_code", name="uq_petpooja_menu_sharing_code"),
     )
 
     store_id = Column(
@@ -69,6 +70,8 @@ class StorePetpoojaCredentials(Base):
     app_secret = Column(String(512), nullable=False)
     access_token = Column(Text, nullable=False)
     petpooja_restaurant_id = Column(String(64), nullable=False, index=True)
+    # Petpooja "menu sharing code" — use as restID in order payload and fetch-menu API (avoids unauthorized errors).
+    menu_sharing_code = Column(String(64), nullable=False, index=True)
     fetch_menu_url = Column(Text, nullable=False)
     create_order_url = Column(Text, nullable=False)
     callback_url = Column(Text, nullable=False)

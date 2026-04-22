@@ -271,7 +271,7 @@ class OrderService:
         return PetpoojaPayloadBuilder(
             order,
             catalog,
-            restaurant_id=self.petpooja_creds.restaurant_id,
+            menu_sharing_code=self.petpooja_creds.menu_sharing_code,
             callback_url=self.petpooja_creds.callback_url,
             res_name=self.store.store_name,
         ).build()

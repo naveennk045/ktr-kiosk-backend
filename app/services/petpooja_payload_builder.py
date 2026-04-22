@@ -33,13 +33,13 @@ class PetpoojaPayloadBuilder:
         order: Order,
         catalog: Dict,
         *,
-        restaurant_id: str,
+        menu_sharing_code: str,
         callback_url: str,
         res_name: str,
     ):
         self.order = order
         self.catalog = catalog
-        self._restaurant_id = restaurant_id
+        self._menu_sharing_code = menu_sharing_code
         self._callback_url = callback_url
         self._res_name = res_name
         # Build a flat index: addonitemid → addon item dict, for fast lookup during order build.
@@ -76,7 +76,7 @@ class PetpoojaPayloadBuilder:
                             "res_name": self._res_name,
                             "address": "Restaurant Address",  # TODO: Use actual restaurant address
                             "contact_information": "9999999999",  # TODO: Use actual contact number
-                            "restID": self._restaurant_id,
+                            "restID": self._menu_sharing_code,
                         }
                     },
                     "Customer": {
