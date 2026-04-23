@@ -15,7 +15,7 @@ from app.utils.phonepe import (
     compute_x_verify_for_endpoint,
     compute_qr_expiry,
 )
-from app.db.models.order import Order, PaymentMethod, PaymentStatus
+from app.db.models.order import Order, PaymentStatus, PaymentMethod
 from app.db.models.cash_pin import CashPin
 from app.db.models.store import KioskTerminal, Store, StorePhonePeCredentials
 from app.services.order_service import OrderService
@@ -27,7 +27,6 @@ from app.services.store_cache import (
 )
 from app.utils.petpooja import PetpoojaClient
 from app.db.session import SessionLocal
-from app.kds.notify import emit_kitchen_event
 
 logger = logging.getLogger(__name__)
 
@@ -42,21 +41,6 @@ class PaymentService:
         self.db = db
         self.http_client = http_client
         self.redis_client = redis_client
-
-    async def _emit_board_refresh_if_newly_completed(
-        self, order: Order, prev_status: PaymentStatus
-    ) -> None:
-        if order.payment_status == PaymentStatus.COMPLETED and prev_status != PaymentStatus.COMPLETED:
-            await emit_kitchen_event(
-                self.redis_client,
-                "BOARD_REFRESH",
-                {
-                    "reason": "payment_completed",
-                    "store_id": order.store_id,
-                    "order_id": order.order_id,
-                    "kot_code": order.kot_code,
-                },
-            )
 
     async def _phonepe_for_order(self, order: Order) -> StorePhonePeCredentials:
         row = await get_phonepe_row_cached(self.redis_client, self.db, order.store_id)
@@ -292,7 +276,6 @@ class PaymentService:
                 detail=f"amount_paise must be {expected_paise} (order total in paise)",
             )
 
-        prev_status = order.payment_status
         order.terminal_id = terminal_id
         order.payment_method = PaymentMethod.CASH
         order.payment_status = PaymentStatus.COMPLETED
@@ -309,7 +292,6 @@ class PaymentService:
         await self.db.commit()
         await self.db.refresh(order)
 
-        await self._emit_board_refresh_if_newly_completed(order, prev_status)
         osvc = await self._order_service_for_order(order)
         await osvc.sync_order_to_kds(order)
 
@@ -380,7 +362,6 @@ class PaymentService:
 
             response_code = data.get("ResponseCode")
 
-            prev_status = order.payment_status
             new_status = order.payment_status
 
             if str(response_code) == "0":
@@ -397,7 +378,6 @@ class PaymentService:
                 await self.db.commit()
 
             if new_status == PaymentStatus.COMPLETED:
-                await self._emit_board_refresh_if_newly_completed(order, prev_status)
                 osvc = await self._order_service_for_order(order)
                 await osvc.sync_order_to_kds(order)
 
@@ -425,7 +405,6 @@ class PaymentService:
             data = resp.json()
             code = data.get("code")
 
-            prev_status = order.payment_status
             new_status = PaymentStatus.PENDING
 
             if code == "PAYMENT_SUCCESS":
@@ -440,7 +419,6 @@ class PaymentService:
                 await self.db.commit()
 
             if new_status == PaymentStatus.COMPLETED:
-                await self._emit_board_refresh_if_newly_completed(order, prev_status)
                 osvc = await self._order_service_for_order(order)
                 await osvc.sync_order_to_kds(order)
 
@@ -461,7 +439,6 @@ class PaymentService:
             logger.error(f"Order {merchant_order_id} not found during webhook processing")
             return
 
-        prev_status = order.payment_status
         order.provider_code = code
         order.provider_resp = payload
 
@@ -474,7 +451,6 @@ class PaymentService:
         await self.db.refresh(order)
 
         if order.payment_status == PaymentStatus.COMPLETED:
-            await self._emit_board_refresh_if_newly_completed(order, prev_status)
             osvc = await self._order_service_for_order(order)
             await osvc.sync_order_to_kds(order)
 

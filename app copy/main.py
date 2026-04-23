@@ -11,8 +11,6 @@ from .routers import catalog, order, admin, petpooja
 from .routers.payment import payment
 from app.core.config import settings
 from app.dashboard import analytics_router, orders_read_router
-from app.kds.router import router as kds_router
-from app.tms.router import router as tms_router
 
 # Configure Logging
 logging.basicConfig(
@@ -91,8 +89,6 @@ app = FastAPI(
             "description": "GET /admin/kiosk-config lists all stores (no X-Store-Id); cash-pins and cache invalidation require X-Store-Id.",
         },
         {"name": "petpooja", "description": "Inbound menu push and callbacks."},
-        {"name": "kds", "description": "Kitchen display: board, line status, WebSocket (requires X-Store-Id)."},
-        {"name": "tms", "description": "Token display: snapshot and SSE (X-Store-Id or store_id query on stream)."},
     ],
 )
 
@@ -119,5 +115,3 @@ app.include_router(payment.router, prefix="/payments", tags=["payments"])
 app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 app.include_router(admin.router)
 app.include_router(petpooja.router, prefix="/petpooja", tags=["petpooja"])
-app.include_router(kds_router, prefix="/kds", tags=["kds"])
-app.include_router(tms_router, prefix="/tms", tags=["tms"])
