@@ -17,6 +17,7 @@ from app.utils.takeaway_charges import compute_takeaway_charges
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+TAKEAWAY_EXCLUDED_CATEGORY_IDS = {"9593400", "9593393"}
 
 
 class OrderService:
@@ -43,6 +44,7 @@ class OrderService:
         # 2. Recalculate Totals
         backend_total_exc = 0.0
         backend_total_inc = 0.0
+        takeaway_chargeable_qty_sum = 0
         items_for_db = []
 
         for item_req in request.items:
@@ -51,6 +53,9 @@ class OrderService:
                 raise ValueError(f"Invalid item SKU code: {item_req.sku_code}")
 
             quantity = item_req.quantity
+            item_category_id = str(catalog_item.get("categoryId", ""))
+            if item_category_id not in TAKEAWAY_EXCLUDED_CATEGORY_IDS:
+                takeaway_chargeable_qty_sum += quantity
             
             # Resolve base price OR variation price
             unit_price = float(catalog_item.get("price", 0.0))
@@ -99,8 +104,6 @@ class OrderService:
                 "addon_items": addon_items_list,
             })
 
-        qty_sum = sum(line.quantity for line in request.items)
-
         if request.order_type == OrderType.DINEIN:
             if abs(request.takeaway_charges_without_tax) > 0.01 or abs(
                 request.takeaway_charges_with_tax
@@ -110,7 +113,7 @@ class OrderService:
                 )
             tw_exc, tw_inc = 0.0, 0.0
         else:
-            tw_exc, tw_inc = compute_takeaway_charges(qty_sum)
+            tw_exc, tw_inc = compute_takeaway_charges(takeaway_chargeable_qty_sum)
             client_sent = (
                 abs(request.takeaway_charges_without_tax) > 0.01
                 or abs(request.takeaway_charges_with_tax) > 0.01
