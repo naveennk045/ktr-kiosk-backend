@@ -107,6 +107,7 @@ class KdsBoardService:
             "id": order.id,
             "store_id": order.store_id,
             "order_id": order.order_id,
+            "order_type": order.order_type.value if order.order_type else None,
             "kot_code": order.kot_code,
             "kot_number": order.kot_number,
             "kot_date": order.kot_date.isoformat() if order.kot_date else None,
