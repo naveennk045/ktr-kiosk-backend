@@ -64,10 +64,10 @@ class PaymentService:
                 },
             )
 
-    async def _auto_mark_lines_ready_if_newly_completed(
+    async def _auto_mark_lines_preparing_if_newly_completed(
         self, order: Order, prev_status: PaymentStatus
     ) -> None:
-        """Auto-accept paid orders by moving line items to READY once."""
+        """Auto-accept paid orders by moving line items to PREPARING once."""
         if order.payment_status != PaymentStatus.COMPLETED:
             return
         if prev_status == PaymentStatus.COMPLETED:
@@ -77,11 +77,9 @@ class PaymentService:
             update(OrderItem)
             .where(
                 OrderItem.order_id == order.id,
-                OrderItem.order_status.in_(
-                    [OrderItemStatus.NOT_ACCEPTED, OrderItemStatus.PREPARING]
-                ),
+                OrderItem.order_status == OrderItemStatus.NOT_ACCEPTED,
             )
-            .values(order_status=OrderItemStatus.READY)
+            .values(order_status=OrderItemStatus.PREPARING)
         )
         await self.db.commit()
         await self.db.refresh(order)
@@ -337,7 +335,7 @@ class PaymentService:
         await self.db.commit()
         await self.db.refresh(order)
 
-        await self._auto_mark_lines_ready_if_newly_completed(order, prev_status)
+        await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
         await self._emit_board_refresh_if_newly_completed(order, prev_status)
         osvc = await self._order_service_for_order(order)
         await osvc.sync_order_to_kds(order)
@@ -426,7 +424,7 @@ class PaymentService:
                 await self.db.commit()
 
             if new_status == PaymentStatus.COMPLETED:
-                await self._auto_mark_lines_ready_if_newly_completed(order, prev_status)
+                await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
                 await self._emit_board_refresh_if_newly_completed(order, prev_status)
                 osvc = await self._order_service_for_order(order)
                 await osvc.sync_order_to_kds(order)
@@ -470,7 +468,7 @@ class PaymentService:
                 await self.db.commit()
 
             if new_status == PaymentStatus.COMPLETED:
-                await self._auto_mark_lines_ready_if_newly_completed(order, prev_status)
+                await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
                 await self._emit_board_refresh_if_newly_completed(order, prev_status)
                 osvc = await self._order_service_for_order(order)
                 await osvc.sync_order_to_kds(order)
@@ -505,7 +503,7 @@ class PaymentService:
         await self.db.refresh(order)
 
         if order.payment_status == PaymentStatus.COMPLETED:
-            await self._auto_mark_lines_ready_if_newly_completed(order, prev_status)
+            await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
             await self._emit_board_refresh_if_newly_completed(order, prev_status)
             osvc = await self._order_service_for_order(order)
             await osvc.sync_order_to_kds(order)
