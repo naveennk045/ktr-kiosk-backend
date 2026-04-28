@@ -4,7 +4,7 @@ import redis.asyncio as redis
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
@@ -15,7 +15,13 @@ from app.utils.phonepe import (
     compute_x_verify_for_endpoint,
     compute_qr_expiry,
 )
-from app.db.models.order import Order, PaymentMethod, PaymentStatus
+from app.db.models.order import (
+    Order,
+    OrderItem,
+    OrderItemStatus,
+    PaymentMethod,
+    PaymentStatus,
+)
 from app.db.models.cash_pin import CashPin
 from app.db.models.store import KioskTerminal, Store, StorePhonePeCredentials
 from app.services.order_service import OrderService
@@ -57,6 +63,28 @@ class PaymentService:
                     "kot_code": order.kot_code,
                 },
             )
+
+    async def _auto_mark_lines_ready_if_newly_completed(
+        self, order: Order, prev_status: PaymentStatus
+    ) -> None:
+        """Auto-accept paid orders by moving line items to READY once."""
+        if order.payment_status != PaymentStatus.COMPLETED:
+            return
+        if prev_status == PaymentStatus.COMPLETED:
+            return
+
+        await self.db.execute(
+            update(OrderItem)
+            .where(
+                OrderItem.order_id == order.id,
+                OrderItem.order_status.in_(
+                    [OrderItemStatus.NOT_ACCEPTED, OrderItemStatus.PREPARING]
+                ),
+            )
+            .values(order_status=OrderItemStatus.READY)
+        )
+        await self.db.commit()
+        await self.db.refresh(order)
 
     async def _phonepe_for_order(self, order: Order) -> StorePhonePeCredentials:
         row = await get_phonepe_row_cached(self.redis_client, self.db, order.store_id)
@@ -309,6 +337,7 @@ class PaymentService:
         await self.db.commit()
         await self.db.refresh(order)
 
+        await self._auto_mark_lines_ready_if_newly_completed(order, prev_status)
         await self._emit_board_refresh_if_newly_completed(order, prev_status)
         osvc = await self._order_service_for_order(order)
         await osvc.sync_order_to_kds(order)
@@ -397,6 +426,7 @@ class PaymentService:
                 await self.db.commit()
 
             if new_status == PaymentStatus.COMPLETED:
+                await self._auto_mark_lines_ready_if_newly_completed(order, prev_status)
                 await self._emit_board_refresh_if_newly_completed(order, prev_status)
                 osvc = await self._order_service_for_order(order)
                 await osvc.sync_order_to_kds(order)
@@ -440,6 +470,7 @@ class PaymentService:
                 await self.db.commit()
 
             if new_status == PaymentStatus.COMPLETED:
+                await self._auto_mark_lines_ready_if_newly_completed(order, prev_status)
                 await self._emit_board_refresh_if_newly_completed(order, prev_status)
                 osvc = await self._order_service_for_order(order)
                 await osvc.sync_order_to_kds(order)
@@ -474,6 +505,7 @@ class PaymentService:
         await self.db.refresh(order)
 
         if order.payment_status == PaymentStatus.COMPLETED:
+            await self._auto_mark_lines_ready_if_newly_completed(order, prev_status)
             await self._emit_board_refresh_if_newly_completed(order, prev_status)
             osvc = await self._order_service_for_order(order)
             await osvc.sync_order_to_kds(order)
