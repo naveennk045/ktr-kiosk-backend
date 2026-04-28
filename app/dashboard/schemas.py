@@ -5,6 +5,7 @@ from app.db.models.order import OrderType, PaymentStatus
 
 DashboardPeriod = Literal["today", "yesterday", "last_week", "all_time"]
 
+
 class AnalyticsSummaryResponse(BaseModel):
     """Completed orders only; time window is in Asia/Kolkata (IST)."""
     period: DashboardPeriod
@@ -15,6 +16,7 @@ class AnalyticsSummaryResponse(BaseModel):
     upiRupees: float
     cardRupees: float
     cashRupees: float
+
 
 class OrderGridItem(BaseModel):
     orderRefId: str
@@ -29,10 +31,12 @@ class OrderGridItem(BaseModel):
     itemsSummary: str
     createdAt: datetime
 
+
 class OrderGridResponse(BaseModel):
     content: List[OrderGridItem]
     totalPages: int
     totalElements: int
+
 
 class OrderDetailResponse(BaseModel):
     orderRefId: str

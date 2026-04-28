@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from app.core.config import settings
 from app.db.models.order import Order, OrderType
 from app.utils.tax_utils import money, find_item, build_sale_item
 
@@ -29,9 +28,20 @@ class PetpoojaPayloadBuilder:
        resolved against the catalog addongroups index.
     """
 
-    def __init__(self, order: Order, catalog: Dict):
+    def __init__(
+        self,
+        order: Order,
+        catalog: Dict,
+        *,
+        menu_sharing_code: str,
+        callback_url: str,
+        res_name: str,
+    ):
         self.order = order
         self.catalog = catalog
+        self._menu_sharing_code = menu_sharing_code
+        self._callback_url = callback_url
+        self._res_name = res_name
         # Build a flat index: addonitemid → addon item dict, for fast lookup during order build.
         # This avoids nested loops for every order item.
         self._addon_item_index: Dict[str, Dict] = {
@@ -63,10 +73,10 @@ class PetpoojaPayloadBuilder:
                 "OrderInfo": {
                     "Restaurant": {
                         "details": {
-                            "res_name": settings.APP_NAME,
+                            "res_name": self._res_name,
                             "address": "Restaurant Address",  # TODO: Use actual restaurant address
                             "contact_information": "9999999999",  # TODO: Use actual contact number
-                            "restID": settings.PETPOOJA_RESTAURANT_ID
+                            "restID": self._menu_sharing_code,
                         }
                     },
                     "Customer": {
@@ -124,7 +134,7 @@ class PetpoojaPayloadBuilder:
                             "description": "",
                             "enable_delivery": 0,
                             "min_prep_time": 20,
-                            "callback_url": settings.PETPOOJA_CALLBACK_URL,
+                            "callback_url": self._callback_url,
                             "collect_cash": str(self.order.total_amount_include_tax) if self.order.payment_method == "CASH" else "0",
                             "otp": ""
                         }
@@ -194,7 +204,7 @@ class PetpoojaPayloadBuilder:
         order_items = []
         tax_aggregation: Dict[str, Any] = {}
 
-        for item_spec in self.order.items:
+        for item_spec in self.order.item_specs_for_payload():
             # 1. Base Item Resolution
             src_item = find_item(catalog_items, item_spec.get("sku_code"))
             if not src_item:

@@ -1,17 +1,14 @@
 import logging
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.dependencies import get_order_service, get_db
-from app.db.schemas.dashboard import DashboardPeriod, OrderDetailResponse, OrderGridResponse
+from app.core.dependencies import get_order_service
 from app.db.schemas.order import OrderCreateRequest, OrderCreateResponse
-from app.services.dashboard_service import DashboardService
 from app.services.order_service import OrderService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
 
 @router.post("/", response_model=OrderCreateResponse)
 async def create_order(
@@ -36,7 +33,6 @@ async def create_order(
         )
 
     except ValueError as e:
-        # Catch validation errors (e.g. Invalid SKU)
         logger.warning(f"Order validation failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -48,36 +44,3 @@ async def create_order(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not process order."
         )
-
-# --- DASHBOARD ENDPOINTS ---
-
-async def get_dashboard_service(db: AsyncSession = Depends(get_db)) -> DashboardService:
-    return DashboardService(db)
-
-@router.get("/", response_model=OrderGridResponse)
-async def get_orders(
-    page: int = 0,
-    size: int = 20,
-    sortBy: str = "created_at",
-    sortDir: str = "desc",
-    period: DashboardPeriod = Query(
-        "all_time",
-        description="Same IST windows as /analytics/summary.",
-    ),
-    status: Optional[str] = None,
-    search: Optional[str] = None,
-    service: DashboardService = Depends(get_dashboard_service),
-):
-    return await service.get_orders_grid(
-        page, size, sortBy, sortDir, period, status, search
-    )
-
-@router.get("/{order_id}", response_model=OrderDetailResponse)
-async def get_order_detail(
-    order_id: str,
-    service: DashboardService = Depends(get_dashboard_service)
-):
-    order = await service.get_order_detail(order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return order

@@ -6,9 +6,16 @@ from app.core.config import settings
 class Base(DeclarativeBase):
     pass
 
-from app.db.models.order import Order # noqa
+from app.db.models.order import Order, OrderItem  # noqa: F401
 from app.db.models.menu import Menu # noqa
 from app.db.models.cash_pin import CashPin # noqa
+from app.db.models.store import (  # noqa
+    Store,
+    StorePetpoojaCredentials,
+    StorePhonePeCredentials,
+    StorePinelabsCredentials,
+    KioskTerminal,
+)
 
 from sqlalchemy.engine.url import make_url
 

@@ -1,17 +1,20 @@
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+
 from sqlalchemy import select, func, desc, asc, case
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.db.models.order import Order, PaymentStatus, OrderType, PaymentMethod
-from app.db.schemas.dashboard import (
+from app.dashboard.schemas import (
     AnalyticsSummaryResponse,
     DashboardPeriod,
     OrderGridResponse,
     OrderGridItem,
     OrderDetailResponse,
 )
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +40,17 @@ def _time_filters_for_period(period: DashboardPeriod) -> list:
 
 
 class DashboardService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, store_id: int):
         self.db = db
+        self.store_id = store_id
 
     async def get_analytics_summary(self, period: DashboardPeriod) -> AnalyticsSummaryResponse:
         time_filters = _time_filters_for_period(period)
-        base = [Order.payment_status == PaymentStatus.COMPLETED, *time_filters]
+        base = [
+            Order.store_id == self.store_id,
+            Order.payment_status == PaymentStatus.COMPLETED,
+            *time_filters,
+        ]
 
         amt = Order.total_amount_include_tax
         stmt = select(
@@ -113,7 +121,11 @@ class DashboardService:
     ) -> OrderGridResponse:
 
         # Base Query
-        stmt = select(Order)
+        stmt = (
+            select(Order)
+            .options(selectinload(Order.line_items))
+            .where(Order.store_id == self.store_id)
+        )
 
         for cond in _time_filters_for_period(period):
             stmt = stmt.where(cond)
@@ -151,12 +163,17 @@ class DashboardService:
         content = []
         for o in orders:
             item_names = []
-            for i in o.items or []:
-                if not isinstance(i, dict):
-                    continue
-                item_names.append(
-                    i.get("item_name") or i.get("name") or "Item"
-                )
+            lines = list(o.line_items) if o.line_items else []
+            if lines:
+                for li in sorted(lines, key=lambda x: x.id):
+                    item_names.append(li.item_name or "Item")
+            else:
+                for i in o.items or []:
+                    if not isinstance(i, dict):
+                        continue
+                    item_names.append(
+                        i.get("item_name") or i.get("name") or "Item"
+                    )
             summary_text = item_names[0] if item_names else "No Items"
             if len(item_names) > 1:
                 summary_text += f" (+{len(item_names)-1} more)"
@@ -185,11 +202,32 @@ class DashboardService:
         )
 
     async def get_order_detail(self, order_id: str) -> Optional[OrderDetailResponse]:
-        stmt = select(Order).where(Order.order_id == order_id)
+        stmt = (
+            select(Order)
+            .options(selectinload(Order.line_items))
+            .where(
+                Order.order_id == order_id,
+                Order.store_id == self.store_id,
+            )
+        )
         order = (await self.db.execute(stmt)).scalar_one_or_none()
 
         if not order:
             return None
+
+        if order.line_items:
+            detail_items = [
+                {
+                    "name": li.item_name,
+                    "qty": li.quantity,
+                    "price": float(li.price),
+                    "sku": li.item_skuid,
+                    "order_status": li.order_status.value,
+                }
+                for li in sorted(order.line_items, key=lambda x: x.id)
+            ]
+        else:
+            detail_items = order.items
 
         # Build detailed response
         return OrderDetailResponse(
@@ -198,7 +236,7 @@ class DashboardService:
             amount=float(order.total_amount_include_tax),
             paymentStatus=order.payment_status,
             erpStatus=order.kds_status,
-            items=order.items,
+            items=detail_items,
             paymentMeta=order.provider_resp,
             createdAt=order.created_at,
             takeaway_charges_without_tax=float(
@@ -211,4 +249,3 @@ class DashboardService:
                 order, "cash_collected_by_staff_name", None
             ),
         )
-

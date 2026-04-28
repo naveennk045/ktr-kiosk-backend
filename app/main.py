@@ -5,10 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import redis.asyncio as redis
 
-from app.db.session import engine, Base
-from .routers import catalog, order, admin, dashboard, petpooja
+from app.db.session import engine, Base, SessionLocal
+from app.db.bootstrap import ensure_default_store
+from .routers import catalog, order, admin, petpooja
 from .routers.payment import payment
 from app.core.config import settings
+from app.dashboard import analytics_router, orders_read_router
+from app.kds.router import router as kds_router
+from app.tms.router import router as tms_router
 
 # Configure Logging
 logging.basicConfig(
@@ -36,6 +40,9 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     logger.info("PostgreSQL tables ensured.")
 
+    async with SessionLocal() as session:
+        await ensure_default_store(session)
+
     # Redis setup...
     try:
         app.state.redis_client = redis.from_url(
@@ -58,8 +65,36 @@ async def lifespan(app: FastAPI):
     logger.info("Resources cleaned up. Application shutting down.")
 
 
-# FastAPI App
-app = FastAPI(lifespan=lifespan)
+# FastAPI App (OpenAPI: GET /docs, GET /redoc)
+app = FastAPI(
+    lifespan=lifespan,
+    title="KTR Kiosk Server",
+    description=(
+        "Multi-store kiosk backend: catalog (Petpooja), orders, PhonePe QR, "
+        "Pine Labs EDC, cash PIN, dashboard reads, and Petpooja webhooks. "
+        "Per-store credentials are in PostgreSQL; env holds only DB/Redis and PhonePe API base URLs. "
+        "Most routes require `X-Store-Id` (numeric store id or `store_code`); "
+        "payment routes resolve the store from the order id. See docs/API.md."
+    ),
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "catalog", "description": "Menu catalog and Redis cache (requires X-Store-Id)."},
+        {"name": "orders", "description": "Create order (POST /orders/)."},
+        {"name": "dashboard", "description": "Order grid and detail for admin UI (GET /orders/)."},
+        {"name": "payments", "description": "PhonePe webhook (no X-Store-Id)."},
+        {"name": "Dynamic QR", "description": "PhonePe UPI QR init/status."},
+        {"name": "edc", "description": "Pine Labs EDC init/status."},
+        {"name": "cash", "description": "Cash payment with staff PIN."},
+        {"name": "analytics", "description": "IST KPI summary (requires X-Store-Id)."},
+        {
+            "name": "admin",
+            "description": "GET /admin/kiosk-config lists all stores (no X-Store-Id); cash-pins and cache invalidation require X-Store-Id.",
+        },
+        {"name": "petpooja", "description": "Inbound menu push and callbacks."},
+        {"name": "kds", "description": "Kitchen display: board, line status, WebSocket (requires X-Store-Id)."},
+        {"name": "tms", "description": "Token display: snapshot and SSE (X-Store-Id or store_id query on stream)."},
+    ],
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,7 +114,10 @@ def read_root():
 # Routers
 app.include_router(catalog.router, prefix="/catalog", tags=["catalog"])
 app.include_router(order.router, prefix="/orders", tags=["orders"])
+app.include_router(orders_read_router, prefix="/orders", tags=["dashboard"])
 app.include_router(payment.router, prefix="/payments", tags=["payments"])
-app.include_router(dashboard.router, prefix="/analytics", tags=["analytics"])
+app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 app.include_router(admin.router)
 app.include_router(petpooja.router, prefix="/petpooja", tags=["petpooja"])
+app.include_router(kds_router, prefix="/kds", tags=["kds"])
+app.include_router(tms_router, prefix="/tms", tags=["tms"])

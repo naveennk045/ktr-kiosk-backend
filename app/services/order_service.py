@@ -6,15 +6,23 @@ from typing import Dict
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.db.models.order import Order, PaymentStatus, KdsStatus, OrderType
+from app.db.models.order import (
+    Order,
+    OrderItem,
+    OrderItemStatus,
+    OrderType,
+    PaymentStatus,
+    KdsStatus,
+)
 from app.db.models.kot_counter import KotCounter
+from app.db.models.store import Store
 from app.db.schemas.order import OrderCreateRequest
 from app.services.catalog_service import CatalogService
 from app.services.petpooja_payload_builder import PetpoojaPayloadBuilder
-from app.utils.petpooja import PetpoojaClient
+from app.utils.petpooja import PetpoojaClient, PetpoojaCredentials
 from app.utils.takeaway_charges import compute_takeaway_charges
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 TAKEAWAY_EXCLUDED_CATEGORY_IDS = {"9593400", "9593393"}
@@ -25,11 +33,15 @@ class OrderService:
             self,
             db: AsyncSession,
             catalog_service: CatalogService,
-            petpooja_client: PetpoojaClient
+            petpooja_client: PetpoojaClient,
+            store: Store,
+            petpooja_creds: PetpoojaCredentials,
     ):
         self.db = db
         self.catalog = catalog_service
         self.petpooja = petpooja_client
+        self.store = store
+        self.petpooja_creds = petpooja_creds
 
     # --- 1. Order Creation Logic ---
     async def create_order(self, request: OrderCreateRequest) -> Order:
@@ -37,7 +49,7 @@ class OrderService:
         Orchestrates order creation: Fetch Catalog -> Calculate Totals -> Generate KOT -> Save DB
         """
         # 1. Fetch & Validate Catalog
-        catalog_data = await self.catalog.get_catalog(request.channel)
+        catalog_data = await self.catalog.get_catalog(request.channel, self.db)
         sku_map = {item["skuCode"]: item for item in catalog_data.get("items", [])}
         tax_map = {t["taxTypeId"]: float(t["percentage"]) for t in catalog_data.get("taxTypes", [])}
 
@@ -136,12 +148,13 @@ class OrderService:
         order_id = f"KTR-{full_uuid[0:8]}{full_uuid[10:12]}"
         kot_date, kot_number, kot_code = await self._generate_next_kot()
 
-        # 4. Create Order Object
+        # 4. Create order header (lines live in `order_items`)
         new_order = Order(
+            store_id=self.store.id,
             order_id=order_id,
             channel=request.channel,
             order_type=request.order_type,
-            items=items_for_db,
+            items=[],
             total_amount_exclude_tax=math.ceil(backend_total_exc),
             total_amount_include_tax=math.ceil(backend_total_inc),
             takeaway_charges_exclude_tax=tw_exc,
@@ -154,18 +167,38 @@ class OrderService:
         )
 
         self.db.add(new_order)
+        await self.db.flush()
+
+        for spec in items_for_db:
+            self.db.add(
+                OrderItem(
+                    order_id=new_order.id,
+                    item_skuid=spec["sku_code"],
+                    item_name=(spec.get("item_name") or "")[:512],
+                    quantity=int(spec["quantity"]),
+                    price=spec["unit_price"],
+                    variation_id=spec.get("variation_id"),
+                    addon_items=spec.get("addon_items") or [],
+                    order_status=OrderItemStatus.NOT_ACCEPTED,
+                )
+            )
+
         await self.db.commit()
         await self.db.refresh(new_order)
         return new_order
 
     async def _generate_next_kot(self) -> tuple[date, int, str]:
         today = date.today()
-        stmt = select(KotCounter).where(KotCounter.kot_date == today).with_for_update()
+        stmt = (
+            select(KotCounter)
+            .where(KotCounter.store_id == self.store.id, KotCounter.kot_date == today)
+            .with_for_update()
+        )
         result = await self.db.execute(stmt)
         counter = result.scalar_one_or_none()
 
         if counter is None:
-            counter = KotCounter(kot_date=today, last_number=0)
+            counter = KotCounter(store_id=self.store.id, kot_date=today, last_number=0)
             self.db.add(counter)
             await self.db.flush()
 
@@ -177,13 +210,24 @@ class OrderService:
         """
         Posts the order to Petpooja.
         """
+        stmt = (
+            select(Order)
+            .options(selectinload(Order.line_items))
+            .where(Order.id == order.id)
+        )
+        row = (await self.db.execute(stmt)).scalar_one_or_none()
+        if not row:
+            logger.error("sync_order_to_kds: order id=%s not found", getattr(order, "id", None))
+            return False, None
+        order = row
+
         logger.info(f"Syncing order {order.order_id} to Petpooja...")
 
         if order.kds_status == KdsStatus.POSTED:
             return True, order.kds_invoice_id
 
         try:
-            catalog = await self.catalog.get_catalog(order.channel)
+            catalog = await self.catalog.get_catalog(order.channel, self.db)
         except Exception as e:
             await self._update_kds_status(order, KdsStatus.FAILED, f"Catalog error: {e}")
             return False, None
@@ -227,7 +271,13 @@ class OrderService:
         Delegates payload construction to PetpoojaPayloadBuilder.
         CatalogService is already injected and uses Redis caching, so re-use is efficient.
         """
-        return PetpoojaPayloadBuilder(order, catalog).build()
+        return PetpoojaPayloadBuilder(
+            order,
+            catalog,
+            menu_sharing_code=self.petpooja_creds.menu_sharing_code,
+            callback_url=self.petpooja_creds.callback_url,
+            res_name=self.store.store_name,
+        ).build()
 
     async def _update_kds_status(self, order: Order, status: KdsStatus, error: str = None, invoice_id: str = None):
         """Update order KDS status and related fields."""
