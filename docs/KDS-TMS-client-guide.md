@@ -60,6 +60,10 @@ It adds `items_need_be_ready` and `items_need_be_collected`, backfills from `qua
 
 **Invariant (after server updates):** for a normal line, `items_need_be_ready + items_need_be_collected` should align with how much work is left; when both are `0`, the line is done and `order_status` becomes `COLLECTED`.
 
+**Non-kitchen categories filtered out (by Petpooja category id):** if an order line’s `categoryId` is **`9593393`** (extras), **`9534540`** (coffee), or **`9593400`**, it is auto-created as `COLLECTED` with zero pending counters. It remains on the bill and in Petpooja sync, but it does **not** appear on KDS/TMS work queues.
+
+**Takeaway charges:** for **`TAKEAWAY`** orders, **`9534540`** (coffee) still **counts** toward takeaway chargeable quantity. **`9593393`** and **`9593400`** do not (same as before for non-packaged retail / extras style lines).
+
 ### 2.3 How `order_status` relates to counters (for UI badges)
 
 Roughly:

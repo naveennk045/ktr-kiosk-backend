@@ -25,7 +25,13 @@ from app.utils.petpooja import PetpoojaClient, PetpoojaCredentials
 from app.utils.takeaway_charges import compute_takeaway_charges
 
 logger = logging.getLogger(__name__)
-TAKEAWAY_EXCLUDED_CATEGORY_IDS = {"9593400", "9593393"}
+
+# Petpooja `item_categoryid` values: items in these categories skip KDS/TMS (auto COLLECTED at order create).
+# extras 9593393, coffee 9534540, and 9593400 (per store menu mapping).
+KDS_TMS_IGNORE_CATEGORY_IDS = frozenset({"9593393", "9534540", "9593400"})
+
+# Categories excluded from per-item takeaway chargeable qty (coffee 9534540 is NOT here — coffee pays takeaway).
+TAKEAWAY_EXCLUDED_CATEGORY_IDS = frozenset({"9593393", "9593400"})
 
 
 class OrderService:
@@ -68,7 +74,8 @@ class OrderService:
             item_category_id = str(catalog_item.get("categoryId", ""))
             if item_category_id not in TAKEAWAY_EXCLUDED_CATEGORY_IDS:
                 takeaway_chargeable_qty_sum += quantity
-            
+            skip_kds_tms = item_category_id in KDS_TMS_IGNORE_CATEGORY_IDS
+
             # Resolve base price OR variation price
             unit_price = float(catalog_item.get("price", 0.0))
             if item_req.variation_id:
@@ -114,6 +121,11 @@ class OrderService:
                 "unit_price": full_unit_price,
                 "variation_id": item_req.variation_id,
                 "addon_items": addon_items_list,
+                "initial_order_status": (
+                    OrderItemStatus.COLLECTED
+                    if skip_kds_tms
+                    else OrderItemStatus.NOT_ACCEPTED
+                ),
             })
 
         if request.order_type == OrderType.DINEIN:
@@ -176,12 +188,16 @@ class OrderService:
                     item_skuid=spec["sku_code"],
                     item_name=(spec.get("item_name") or "")[:512],
                     quantity=int(spec["quantity"]),
-                    items_need_be_ready=int(spec["quantity"]),
+                    items_need_be_ready=(
+                        0
+                        if spec.get("initial_order_status") == OrderItemStatus.COLLECTED
+                        else int(spec["quantity"])
+                    ),
                     items_need_be_collected=0,
                     price=spec["unit_price"],
                     variation_id=spec.get("variation_id"),
                     addon_items=spec.get("addon_items") or [],
-                    order_status=OrderItemStatus.NOT_ACCEPTED,
+                    order_status=spec.get("initial_order_status", OrderItemStatus.NOT_ACCEPTED),
                 )
             )
 
