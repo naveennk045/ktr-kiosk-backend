@@ -1,166 +1,223 @@
-# KDS & TMS — Backend runbook and frontend client guide
+# KDS & TMS — Frontend client guide (with examples)
 
-This document covers **how to run the API** and **everything frontend developers need** to build the **Kitchen Display System (KDS)** and **Token Management System (TMS)** clients against this server.
+This document is for **frontend teams** building the **Kitchen Display System (KDS)** and **Token Management System (TMS)** against this API. It focuses on **contracts, payloads, and step-by-step examples** so you can adopt **partial quantity** flows, **`order_type`**, and live events.
+
+For running the server, env vars, and ops, see also `docs/API.md` and project `README` if present.
 
 ---
 
-## Part 1 — Running the backend
+## 1. Conventions every client must follow
 
-### 1.1 Prerequisites
+### 1.1 Store header
 
-| Dependency | Role |
-|------------|------|
-| **PostgreSQL** | Source of truth: `stores`, `orders`, `order_items`, payments, Petpooja credentials per store, etc. |
-| **Redis** | Required for live fan-out (`PUBLISH` + optional `XADD` stream). If Redis fails at startup, the app may still boot but **KDS WebSocket / TMS SSE will not receive live events** (see `app/main.py` lifespan). |
-| **Python 3.10+** | Runtime |
+Almost all KDS/TMS HTTP routes require:
 
-### 1.2 Environment file
-
-Configuration is loaded from **`.env.local`** at the project root (see `app/core/config.py`).
-
-Minimum variables for the **Settings** model (shared infra + PhonePe API paths):
-
-- `POSTGRES_DB_URL` — async URL, e.g. `postgresql+asyncpg://user:pass@host:5432/dbname`
-- `REDIS_HOST` — full Redis URL for `redis.from_url()`, e.g. `redis://localhost:6379/0`
-- `PHONEPE_BASE_URL`
-- `PHONEPE_CALLBACK_URL`
-- `PHONEPE_QR_INIT_ENDPOINT`
-- `PHONEPE_TRANSACTION_ENDPOINT`
-
-Per-store secrets (Petpooja, PhonePe merchant/salt, Pine Labs, etc.) are stored in **PostgreSQL**, not in this env file.
-
-### 1.3 Database and bootstrap
-
-1. Create an empty database and set `POSTGRES_DB_URL`.
-2. On first startup, `Base.metadata.create_all` runs in the app lifespan and creates tables.
-3. `ensure_default_store` runs once after migrations (`app/main.py`) — you need at least one **active** store row for kiosk flows and for **`X-Store-Id`** resolution.
-
-If you use SQL migration scripts under `scripts/`, apply them in the order your deployment process requires (store credentials, `order_items`, etc.).
-
-### 1.4 Install and run
-
-```bash
-cd /path/to/kiosk-server-petpooja
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-# If import errors mention pydantic-settings:
-pip install pydantic-settings
+```http
+X-Store-Id: <numeric stores.id OR store store_code string>
 ```
 
-**Development:**
+Inactive or unknown stores → **404**.
 
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+### 1.2 Base paths
 
-**Sanity checks**
+| App | Base path |
+|-----|-----------|
+| KDS | `/kds` |
+| TMS | `/tms` |
 
-- `GET /` — welcome JSON  
-- `GET /docs` — OpenAPI UI  
-- `GET /kds/health` with header `X-Store-Id: 1` (or your store code)  
-- `GET /tms/health` with same header  
-- Redis: startup logs should show a successful ping when Redis is reachable  
+### 1.3 Database migration (existing deployments)
 
-### 1.5 CORS
+Line items now track partial kitchen / pickup progress. On **existing** PostgreSQL databases, run **once**:
 
-`CORSMiddleware` allows all origins in code; adjust in `app/main.py` for production if needed.
+`scripts/add_order_item_quantity_tracking_columns.sql`
 
-### 1.6 Multi-store rule (KDS / TMS)
-
-Almost all KDS and TMS HTTP routes require **`X-Store-Id`**: either the **numeric** primary key of `stores.id` or the **`store_code`** string (e.g. `STORE-001`). Inactive stores return **404**.
+It adds `items_need_be_ready` and `items_need_be_collected`, backfills from `quantity` + `order_status`, and drops legacy `actual_quantity` if it exists.
 
 ---
 
-## Part 2 — Domain model (what the UI represents)
+## 2. Domain model (what each field means)
 
-### 2.1 Orders and lines
+### 2.1 Order (KDS board / TMS token)
 
-- Each **order** has a business id `order_id`, a **KOT** display code `kot_code` (e.g. `KTR-42`), and belongs to **`store_id`**.
-- **Lines** live in **`order_items`**: one row per item line with `item_skuid`, `item_name`, `quantity`, `price`, optional `variation_id`, `addon_items` (JSON).
-- **Kitchen progress is per line**, field **`order_status`** (enum **`OrderItemStatus`**):
+| Field | Meaning |
+|-------|---------|
+| `order_id` | Business id (e.g. `KTR-A1B2C3D4`) |
+| `kot_code` | Customer-facing token (e.g. `KTR-7`) |
+| `order_type` | **`DINEIN`** or **`TAKEAWAY`** — present on **KDS** `GET /kds/board` / WS snapshot under each order. (TMS snapshot does not include it today; derive from order if you add it server-side later.) |
+| `payment_status` | Orders on KDS/TMS are only shown when **`COMPLETED`** |
 
-| Value | Typical meaning for UI |
-|-------|-------------------------|
-| `NOT_ACCEPTED` | Ticket line exists; kitchen has not “accepted” it yet (or default after order creation). |
-| `PREPARING` | Food is being prepared. |
-| `READY` | Ready for customer pickup (TMS should highlight + optional voice). |
-| `COLLECTED` | Customer picked up; line is done. |
+### 2.2 Line (`order_items` — one row per ticket line)
 
-**Server rule:** status can only move **forward** along the chain (no backward transitions).
+| Field | Meaning |
+|-------|---------|
+| `id` | **`line_id`** — use this in `PATCH /kds/items/{line_id}/status` |
+| `sku_code` | KDS only (TMS omits SKU) |
+| `item_name` | Display name |
+| **`quantity`** | **Total units ordered** on this line (never split into duplicate rows for partial ready) |
+| **`items_need_be_ready`** | Units still to be marked **READY** by kitchen (starts equal to `quantity` on new orders) |
+| **`items_need_be_collected`** | Units already marked ready for pickup but not yet **COLLECTED** by staff |
+| **`order_status`** | Coarse enum: `NOT_ACCEPTED`, `PREPARING`, `READY`, `COLLECTED` — server **updates** this from the counters after each PATCH |
 
-### 2.2 When does an order appear on KDS / TMS?
+**Invariant (after server updates):** for a normal line, `items_need_be_ready + items_need_be_collected` should align with how much work is left; when both are `0`, the line is done and `order_status` becomes `COLLECTED`.
 
-- **Payment** must be **`COMPLETED`**. Until then, the order is not on the kitchen/token board queries.
-- **KDS board** uses **Option B** (`LIVE_ORDERS_WINDOW_MINUTES`, default **30** in `app/kds/constants.py`):
-  - Include orders whose `created_at` is within the rolling window **or**
-  - Include older orders if **any** line is **not** `COLLECTED` (“sticky” incomplete tickets).
-- **TMS snapshot** only lists tokens (orders) where **at least one line** is **not** `COLLECTED`. When **all** lines are `COLLECTED`, the token **disappears** from TMS.
+### 2.3 How `order_status` relates to counters (for UI badges)
 
-### 2.3 Clubbed totals (KDS only)
+Roughly:
 
-`GET /kds/board` returns **`clubbed_totals`**: sum of `quantity` by `item_name` across **visible** orders on the board, counting only lines where `order_status != COLLECTED`.
+- **`NOT_ACCEPTED`**: initial state after order creation (before kitchen starts).
+- **`PREPARING`**: kitchen still has work, or a **mixed** state (some units waiting at counter, some still in kitchen).
+- **`READY`**: all kitchen-side units for that line are done; pickup may still show `items_need_be_collected > 0`.
+- **`COLLECTED`**: line fully finished.
 
----
-
-## Part 3 — End-to-end flow (backend + client mental model)
-
-```mermaid
-sequenceDiagram
-    participant Kiosk
-    participant API
-    participant PG as PostgreSQL
-    participant Redis
-    participant KDS as KDS client
-    participant TMS as TMS client
-
-    Kiosk->>API: POST /orders/ (X-Store-Id)
-    API->>PG: order + order_items (NOT_ACCEPTED)
-    Kiosk->>API: Payment completes
-    API->>PG: payment_status = COMPLETED
-    API->>Redis: PUBLISH BOARD_REFRESH (store_id, kot_code, ...)
-    API->>PG: sync Petpooja (order_service)
-    KDS->>API: WS /kds/ws or GET /kds/board
-    API->>KDS: snapshot + live events
-    TMS->>API: GET /tms/stream or GET /tms/snapshot
-    API->>TMS: tokens + events
-    KDS->>API: PATCH /kds/items/{line_id}/status
-    API->>PG: update order_status
-    API->>Redis: ITEM_STATUS_CHANGED, TMS_ANNOUNCE if READY, BOARD_REFRESH
-    TMS->>TMS: SpeechSynthesis on TMS_ANNOUNCE.speech
-```
-
-1. Kiosk creates an order → **`order_items`** rows exist (initial **`NOT_ACCEPTED`**).
-2. Customer pays → **`payment_status = COMPLETED`** → server emits **`BOARD_REFRESH`** on Redis.
-3. KDS/TMS clients either **poll** `GET /kds/board` / `GET /tms/snapshot` or stay on **WebSocket / SSE** and react to **`BOARD_REFRESH`** (usually refetch snapshot or merge deltas).
-4. Chef updates a line → **`PATCH /kds/items/{id}/status`** → DB update → Redis events (**`ITEM_STATUS_CHANGED`**, optional **`TMS_ANNOUNCE`** with **`speech`**).
+Do not rely only on `order_status` for “how many idlis are ready”; always show **`items_need_be_ready`** / **`items_need_be_collected`** for progress bars.
 
 ---
 
-## Part 4 — KDS frontend client
+## 3. Detailed example — 3 idlis, partial READY then COLLECTED
 
-**Base path:** `/kds`  
-**Store:** send **`X-Store-Id`** on every HTTP request (numeric id or `store_code`).
+Assume one line:
 
-### 4.1 HTTP endpoints
+- `line_id` = `501`
+- `item_name` = `"Idli"`
+- `quantity` = `3`
 
-| Method | Path | Query | Description |
-|--------|------|-------|-------------|
-| GET | `/kds/health` | `max_rows` optional (1–100, default 20) | Meta: `live_window_minutes`, etc. |
-| GET | `/kds/board` | `max_rows` optional | Full snapshot for the store: orders + lines + `clubbed_totals`. |
-| PATCH | `/kds/items/{line_id}/status` | — | Body JSON: `{ "status": "<OrderItemStatus>" }`. |
-
-**PATCH body** (`KdsLineStatusPatch`):
+After payment completes, auto-transition may set kitchen to preparing; **initial snapshot** for that line typically looks like:
 
 ```json
+{
+  "id": 501,
+  "sku_code": "IDLI-001",
+  "item_name": "Idli",
+  "quantity": 3,
+  "items_need_be_ready": 3,
+  "items_need_be_collected": 0,
+  "order_status": "PREPARING"
+}
+```
+
+### Step A — Kitchen accepts / keeps preparing (optional)
+
+```http
+PATCH /kds/items/501/status
+Content-Type: application/json
+X-Store-Id: 1
+
 { "status": "PREPARING" }
 ```
 
-Allowed **`status`** values: `NOT_ACCEPTED`, `PREPARING`, `READY`, `COLLECTED` — must be **strictly forward** from the current row state.
+No counter change; `order_status` becomes `PREPARING` if it was not already.
 
-**PATCH success response** (shape from `KdsBoardService.set_line_item_status`): includes `store_id`, `line_id`, `order_id`, `kot_code`, `item_name`, `quantity`, `order_status`.
+### Step B — Mark **2** idlis ready (partial)
 
-### 4.2 `GET /kds/board` response shape (conceptual)
+```http
+PATCH /kds/items/501/status
+Content-Type: application/json
+X-Store-Id: 1
+
+{ "status": "READY", "quantity": 2 }
+```
+
+**What the server does**
+
+- Subtracts `2` from `items_need_be_ready` → `1`
+- Adds `2` to `items_need_be_collected` → `2`
+- Recomputes `order_status` (likely `PREPARING` because one idli is still in kitchen)
+
+**Typical response body** (shape; numbers match your DB):
+
+```json
+{
+  "store_id": 1,
+  "line_id": 501,
+  "order_id": "KTR-A1B2C3D4",
+  "kot_code": "KTR-7",
+  "item_name": "Idli",
+  "quantity": 2,
+  "items_need_be_ready": 1,
+  "items_need_be_collected": 2,
+  "order_status": "PREPARING"
+}
+```
+
+**Important:** the field **`quantity` in this response is the batch size** moved by **this** PATCH (here `2`), not the line’s total ordered quantity (`3`). The line’s total is still `quantity: 3` on the next `GET /kds/board` snapshot.
+
+**Redis:** clients also receive **`ITEM_STATUS_CHANGED`** and **`TMS_ANNOUNCE`** (with `speech` for TTS) on this PATCH when status is `READY`.
+
+### Step C — Mark the last idli ready
+
+```http
+PATCH /kds/items/501/status
+X-Store-Id: 1
+Content-Type: application/json
+
+{ "status": "READY", "quantity": 1 }
+```
+
+Now `items_need_be_ready: 0`, `items_need_be_collected: 3`, `order_status` likely **`READY`**.
+
+### Step D — Customer collects **1** idli (partial COLLECTED)
+
+```http
+PATCH /kds/items/501/status
+X-Store-Id: 1
+Content-Type: application/json
+
+{ "status": "COLLECTED", "quantity": 1 }
+```
+
+`items_need_be_collected` goes `3 → 2`. `order_status` may stay **`READY`** until all collected.
+
+### Step E — Collect remaining **2**
+
+```http
+PATCH /kds/items/501/status
+X-Store-Id: 1
+Content-Type: application/json
+
+{ "status": "COLLECTED", "quantity": 2 }
+```
+
+When both counters hit `0`, `order_status` becomes **`COLLECTED`**. The line disappears from TMS when **all** lines on that order are `COLLECTED`.
+
+### Omitting `quantity` (full line in one tap)
+
+If you omit `quantity`, the server uses the line’s full **`quantity`** for the cap — but **`READY`** still cannot move more than `items_need_be_ready`, and **`COLLECTED`** cannot move more than `items_need_be_collected`.
+
+Examples:
+
+```json
+{ "status": "READY" }
+```
+
+→ moves up to **`items_need_be_ready`** units (often “all remaining in kitchen”).
+
+```json
+{ "status": "COLLECTED" }
+```
+
+→ moves up to **`items_need_be_collected`** units.
+
+### Errors you should surface in UI
+
+| HTTP | Typical reason |
+|------|----------------|
+| **400** | `quantity` > line `quantity`, or > `items_need_be_ready` / `items_need_be_collected`, or `status: "NOT_ACCEPTED"` (not allowed from KDS) |
+| **404** | Wrong `line_id` or line not in this store |
+| **400** | Order not paid — line not on board |
+
+---
+
+## 4. KDS — HTTP API
+
+### 4.1 Endpoints
+
+| Method | Path | Query | Description |
+|--------|------|-------|-------------|
+| GET | `/kds/health` | `max_rows` optional (1–100) | Meta including `live_window_minutes` |
+| GET | `/kds/board` | `max_rows` optional | Snapshot: orders + lines + `clubbed_totals` |
+| PATCH | `/kds/items/{line_id}/status` | — | Update line status / partial quantities |
+
+### 4.2 `GET /kds/board` — full example shape
 
 ```json
 {
@@ -172,90 +229,61 @@ Allowed **`status`** values: `NOT_ACCEPTED`, `PREPARING`, `READY`, `COLLECTED` �
     {
       "id": 100,
       "store_id": 1,
-      "order_id": "KTR-AB12CD34",
-      "kot_code": "KTR-5",
-      "kot_number": 5,
-      "kot_date": "2026-04-18",
-      "created_at": "2026-04-18T10:00:00+00:00",
+      "order_id": "KTR-A1B2C3D4",
+      "order_type": "TAKEAWAY",
+      "kot_code": "KTR-7",
+      "kot_number": 7,
+      "kot_date": "2026-04-30",
+      "created_at": "2026-04-30T10:00:00+00:00",
       "lines": [
         {
           "id": 501,
-          "sku_code": "SKU123",
-          "item_name": "Masala Dosa",
-          "quantity": 2,
+          "sku_code": "IDLI-001",
+          "item_name": "Idli",
+          "quantity": 3,
+          "items_need_be_ready": 1,
+          "items_need_be_collected": 2,
           "order_status": "PREPARING"
         }
       ]
     }
   ],
   "clubbed_totals": [
-    { "item_name": "Masala Dosa", "quantity": 2 }
+    { "item_name": "Idli", "quantity": 3 }
   ]
 }
 ```
 
-Orders are ordered **oldest first** (`created_at` ascending). Only orders that match Option B and **`payment_status = COMPLETED`** are returned, up to **`max_rows`** KOT cards.
+**`clubbed_totals` note:** sums **`quantity`** per `item_name` for lines where `order_status != COLLECTED`. That is **ordered volume**, not “still cooking”. For “plates still in kitchen”, use **`items_need_be_ready`** per line in UI.
 
-### 4.3 WebSocket — `GET ws(s)://host/kds/ws`
+### 4.3 WebSocket `GET ws(s)://host/kds/ws`
 
-**Query**
+- Query: `max_rows` (optional, same as HTTP).
+- Store: header **`x-store-id`** (lowercase in browsers) **or** query **`?store_id=<numeric>`**.
 
-- `max_rows` (optional, 1–100, default 20) — same meaning as HTTP board.
-
-**Store identification (required)**
-
-1. Preferred: header **`x-store-id`** (browsers send WebSocket subrequest headers in lowercase).
-2. Fallback: query **`?store_id=<numeric>`** (useful if you cannot set headers).
-
-**First message from server**
-
-JSON object:
+**First message:**
 
 ```json
-{ "type": "SNAPSHOT", "payload": { ... same shape as GET /kds/board ... } }
+{ "type": "SNAPSHOT", "payload": { ...same JSON as GET /kds/board... } }
 ```
 
-**Subsequent messages**
-
-Each message is a **JSON string** (text frame) with shape:
+**Later messages:** JSON **string** (text frame):
 
 ```json
-{
-  "type": "<EVENT_TYPE>",
-  "payload": { }
-}
+{ "type": "BOARD_REFRESH", "payload": { "reason": "line_status", "store_id": 1 } }
 ```
 
-The server **filters** messages: if `payload.store_id` is present and does **not** match the connected store, the message is **not** forwarded to that socket.
-
-**If Redis is unavailable**
-
-The socket still opens and sends **`SNAPSHOT`**, then periodic **`{ "type": "PING", "payload": {} }`** JSON messages; there is **no** live pub/sub.
-
-### 4.4 KDS client implementation checklist
-
-1. On load: **`GET /kds/board?max_rows=N`** with `X-Store-Id` (or open **WebSocket** and render first `SNAPSHOT`).
-2. Subscribe to WS and `JSON.parse` each text message; handle types in section 6.
-3. On **`BOARD_REFRESH`**: refetch **`GET /kds/board`** or merge if you maintain local state.
-4. Chef taps: **`PATCH /kds/items/{line.id}/status`** with the next `OrderItemStatus`.
-5. Show **`clubbed_totals`** as a sidebar or footer row.
-6. Fallback if WS fails: poll **`GET /kds/board`** every N seconds.
+Filter client-side if `payload.store_id` does not match your store.
 
 ---
 
-## Part 5 — TMS frontend client
+## 5. TMS — HTTP + SSE
 
-**Base path:** `/tms`  
-**Store:** **`X-Store-Id`** on HTTP routes where `get_store_context` is used.
+### 5.1 `GET /tms/snapshot`
 
-### 5.1 HTTP endpoints
+Same store rules (`X-Store-Id`). Returns **tokens** (paid orders with at least one line not `COLLECTED`).
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/tms/health` | Meta (`live_window_minutes`, etc.). |
-| GET | `/tms/snapshot` | All active tokens for the store (SSR-friendly). |
-
-### 5.2 `GET /tms/snapshot` response shape (conceptual)
+**Example:**
 
 ```json
 {
@@ -264,135 +292,129 @@ The socket still opens and sends **`SNAPSHOT`**, then periodic **`{ "type": "PIN
   "option": "B",
   "tokens": [
     {
-      "kot_code": "KTR-5",
-      "order_id": "KTR-AB12CD34",
-      "created_at": "2026-04-18T10:00:00+00:00",
+      "kot_code": "KTR-7",
+      "order_id": "KTR-A1B2C3D4",
+      "created_at": "2026-04-30T10:00:00+00:00",
       "lines": [
         {
           "id": 501,
-          "item_name": "Masala Dosa",
-          "quantity": 2,
-          "order_status": "READY"
+          "item_name": "Idli",
+          "quantity": 3,
+          "items_need_be_ready": 1,
+          "items_need_be_collected": 2,
+          "order_status": "PREPARING"
         }
       ],
       "flags": {
         "has_ready_for_pickup": true,
-        "has_in_kitchen": false
+        "has_in_kitchen": true
       }
     }
   ]
 }
 ```
 
-**`flags`**
+**`flags` (for headline UI):**
 
-- `has_ready_for_pickup` — at least one line in **`READY`**.
-- `has_in_kitchen` — at least one line in **`NOT_ACCEPTED`** or **`PREPARING`**.
+- **`has_ready_for_pickup`**: any line has `items_need_be_collected > 0` **or** `order_status === "READY"`.
+- **`has_in_kitchen`**: any line has `items_need_be_ready > 0` **or** status is `NOT_ACCEPTED` / `PREPARING`.
 
-Tokens **omit** orders where every line is **`COLLECTED`**.
+### 5.2 `GET /tms/stream` (SSE)
 
-### 5.3 Server-Sent Events — `GET /tms/stream`
-
-**Store identification**
-
-Uses **`get_store_context_flexible`**:
-
-- Header **`X-Store-Id`**, **or**
-- Query **`?store_id=<numeric>`** (recommended for **`EventSource`**, which cannot set custom headers in the browser).
-
-Example:
+Browsers often cannot set headers on `EventSource`; use:
 
 ```text
 GET /tms/stream?store_id=1
 ```
 
-**First SSE `data:` line**
-
-Wrapped JSON (your client should `JSON.parse` after stripping the `data: ` prefix or use the EventSource `message` event `data` string):
+First `data:` line is a JSON envelope:
 
 ```json
-{"type":"SNAPSHOT","payload":{ ... same as GET /tms/snapshot ... }}
+{"type":"SNAPSHOT","payload":{ ...same as GET /tms/snapshot... }}
 ```
 
-**Later `data:` lines**
+Later events: `BOARD_REFRESH`, `ITEM_STATUS_CHANGED`, `TMS_ANNOUNCE` — same shapes as KDS WS (see §6).
 
-Same envelope as WebSocket: `{ "type": "...", "payload": { ... } }`.  
-Server filters by **`payload.store_id`** when present.
+### 5.3 Voice (`TMS_ANNOUNCE`)
 
-**Keep-alives**
+When KDS PATCH is **`READY`** (full or partial batch), server may emit:
 
-Lines starting with **`:`** (comments) are pings; ignore them.
+```json
+{
+  "type": "TMS_ANNOUNCE",
+  "payload": {
+    "store_id": 1,
+    "line_id": 501,
+    "order_id": "KTR-A1B2C3D4",
+    "kot_code": "KTR-7",
+    "item_name": "Idli",
+    "quantity": 2,
+    "items_need_be_ready": 1,
+    "items_need_be_collected": 2,
+    "order_status": "PREPARING",
+    "speech": "Token number 7. Idli is ready for pickup. Please collect from the counter."
+  }
+}
+```
 
-**If Redis is unavailable**
-
-Only snapshot + periodic ping comments; no live kitchen events.
-
-### 5.4 Voice (browser)
-
-When **`type === "TMS_ANNOUNCE"`**, read **`payload.speech`** (plain English string) and pass it to **`SpeechSynthesisUtterance`** (user gesture may be required on some browsers before the first speak).
-
-Typical trigger: line moved to **`READY`** on the KDS (server generates speech server-side text only; **audio is produced in the browser**).
-
-### 5.5 TMS client implementation checklist
-
-1. First paint: **`GET /tms/snapshot`** with `X-Store-Id`.
-2. Live updates: **`new EventSource(base + '/tms/stream?store_id=' + storeId)`** (or fetch-stream if you proxy with headers).
-3. On each message: parse JSON; if `type === 'SNAPSHOT'`, replace state; if `BOARD_REFRESH`, refetch snapshot or wait for next announce; if `ITEM_STATUS_CHANGED`, patch local token lines; if `TMS_ANNOUNCE`, play **`payload.speech`** and flash the token/line.
-4. Hide tokens that disappear from the next snapshot (all lines **`COLLECTED`**).
-
----
-
-## Part 6 — Redis event contract (shared by KDS WS and TMS SSE)
-
-All events are JSON: `{ "type": string, "payload": object }`.
-
-| `type` | When | `payload` (important keys) |
-|--------|------|------------------------------|
-| `BOARD_REFRESH` | New payment completed for a store, or any line status change from KDS | `reason`, **`store_id`** (always set when emitted from this server), `order_id`, `kot_code` on payment; line updates use `reason: "line_status"`. Clients usually **refetch** board/snapshot. |
-| `ITEM_STATUS_CHANGED` | After successful PATCH line status | `store_id`, `line_id`, `order_id`, `kot_code`, `item_name`, `quantity`, `order_status` |
-| `TMS_ANNOUNCE` | Line moved to **`READY`** | Same as `ITEM_STATUS_CHANGED` plus **`speech`** (string for TTS) |
-
-**Durability:** the server also **`XADD`**s the same JSON string to Redis stream key **`kds:stream`** (for ops/debug/replay); clients normally use **pub/sub** only via WS/SSE.
+Use `payload.speech` with **`SpeechSynthesisUtterance`** (browser may require a user gesture before first speak).
 
 ---
 
-## Part 7 — Error handling and HTTP status codes
+## 6. Redis event contract (KDS WS + TMS SSE)
 
-| Code | Typical cause |
-|------|----------------|
-| 400 | Invalid status transition, missing store identifier on flexible routes |
-| 404 | Store unknown/inactive, or line not found / not in this store |
-| 503 | Redis not configured when an endpoint **Depends** on `get_redis_client` |
+Envelope: `{ "type": string, "payload": object }`.
 
-**WebSocket:** missing store id → connection closed with code **4400**. Snapshot failure → **1011**.
+| `type` | When | Payload highlights |
+|--------|------|---------------------|
+| **`BOARD_REFRESH`** | Payment completed for store, or any KDS line update | `reason`, `store_id`; may include `order_id`, `kot_code` on payment |
+| **`ITEM_STATUS_CHANGED`** | After successful PATCH | `line_id`, `order_id`, `kot_code`, `item_name`, **`quantity` (batch)**, counters, `order_status` |
+| **`TMS_ANNOUNCE`** | Same PATCH when `status` is **`READY`** | Above + **`speech`** |
 
-**Live updates vs polling:** Redis pub/sub drives the WebSocket/SSE stream. If the tab **closes the socket** or navigates away, the server stops pushing to that connection (this is normal, not a server bug). Keep the WebSocket open while the KDS page is visible, and on each incoming message `JSON.parse` the text and handle `BOARD_REFRESH` / `ITEM_STATUS_CHANGED` / `TMS_ANNOUNCE`. Petpooja **403** on `save_order` does **not** block Redis events: **`BOARD_REFRESH`** is still emitted when payment completes; line **`PATCH`** still emits kitchen events.
-
-**Shutting down uvicorn while SSE/WS clients are connected:** Stopping the process cancels in-flight tasks (Redis `get_message`, `yield` to the client, Starlette’s disconnect watcher). That produces **`asyncio.CancelledError`** internally; the app code closes Redis pub/sub in `finally` and **does not treat that as a business failure**. If you still see a lifespan `CancelledError` trace on **double Ctrl+C** or force-kill, that is the ASGI server aborting the lifespan handshake—prefer **one** Ctrl+C and wait for “Application shutdown complete” before starting again.
+**Client strategy:** on `BOARD_REFRESH` or `ITEM_STATUS_CHANGED`, either **refetch** `/kds/board` or `/tms/snapshot`, or **patch local state** by `line_id` using payload fields.
 
 ---
 
-## Part 8 — Quick reference (curl)
+## 7. Frontend adoption checklist
 
-Replace `BASE` and store id.
+### KDS
+
+1. Render each line with: **ordered** `quantity`, progress **`items_need_be_ready`**, pickup queue **`items_need_be_collected`**, badge `order_status`.
+2. Chef actions call **`PATCH`** with optional **`quantity`** for partial steps.
+3. Subscribe to **`/kds/ws`**; on `SNAPSHOT` replace state; on `BOARD_REFRESH` / `ITEM_STATUS_CHANGED` refetch or merge.
+4. Remember PATCH response **`quantity`** = **this batch**, not line total.
+
+### TMS
+
+1. Use **`GET /tms/snapshot`** for first paint; **`items_need_be_collected`** drives “pick up now” UI per line.
+2. Use **`flags`** for header chips (“In kitchen” / “Ready”).
+3. **`EventSource`** on `/tms/stream?store_id=`; handle same event types as KDS.
+4. On `TMS_ANNOUNCE`, play **`speech`** and highlight `kot_code` / line.
+
+---
+
+## 8. curl quick reference
 
 ```bash
-curl -sS -H "X-Store-Id: 1" "http://localhost:8000/kds/board?max_rows=10"
-curl -sS -H "X-Store-Id: 1" "http://localhost:8000/tms/snapshot"
-curl -sS -X PATCH "http://localhost:8000/kds/items/501/status" \
-  -H "X-Store-Id: 1" -H "Content-Type: application/json" \
-  -d '{"status":"READY"}'
+export BASE=http://localhost:8000
+export STORE=1
+
+curl -sS -H "X-Store-Id: $STORE" "$BASE/kds/board?max_rows=20" | jq .
+
+curl -sS -H "X-Store-Id: $STORE" "$BASE/tms/snapshot" | jq .
+
+curl -sS -X PATCH "$BASE/kds/items/501/status" \
+  -H "X-Store-Id: $STORE" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"READY","quantity":2}' | jq .
 ```
 
 ---
 
-## Part 9 — Related docs in this repo
+## 9. Order create (kiosk) — `order_type` reminder
 
-- `docs/API.md` — general kiosk API and `X-Store-Id` conventions  
-- `docs/docker_droplet.md` — deployment notes if you use Docker/droplets  
-
-For **dashboard** admin UI (order grid, not KDS), see `docs/dashboard_api.md` and `docs/frontend_dashboard_guide.md`.
+`POST /orders/` body must include **`order_type`**: `"DINEIN"` or `"TAKEAWAY"` so KDS can show dine-in vs takeaway on the board. See `app/db/schemas/order.py` and OpenAPI `/docs`.
 
 ---
 
-*Generated from the codebase in `app/kds`, `app/tms`, `app/services/payment_service.py`, and `app/db/models/order.py`. If behaviour changes, prefer OpenAPI at `/docs` as the live contract.*
+*This guide matches `app/kds/service.py`, `app/kds/router.py`, `app/kds/schemas.py`, `app/tms/service.py`, and `app/services/order_service.py` at the time of writing. For authoritative request/response schemas, use **`/docs`**.*

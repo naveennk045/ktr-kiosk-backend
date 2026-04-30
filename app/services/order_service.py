@@ -176,6 +176,8 @@ class OrderService:
                     item_skuid=spec["sku_code"],
                     item_name=(spec.get("item_name") or "")[:512],
                     quantity=int(spec["quantity"]),
+                    items_need_be_ready=int(spec["quantity"]),
+                    items_need_be_collected=0,
                     price=spec["unit_price"],
                     variation_id=spec.get("variation_id"),
                     addon_items=spec.get("addon_items") or [],

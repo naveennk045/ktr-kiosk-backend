@@ -187,6 +187,8 @@ class OrderItem(Base):
     item_skuid = Column(String(128), nullable=False)
     item_name = Column(String(512), nullable=False)
     quantity = Column(Integer, nullable=False)
+    items_need_be_ready = Column(Integer, nullable=False, server_default=text("0"))
+    items_need_be_collected = Column(Integer, nullable=False, server_default=text("0"))
     price = Column(Numeric(12, 2), nullable=False)
     order_status = Column(
         Enum(OrderItemStatus),

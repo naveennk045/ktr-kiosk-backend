@@ -53,9 +53,15 @@ class TmsTokenService:
             if not order.line_items:
                 continue
             lines = sorted(order.line_items, key=lambda li: li.id)
-            any_ready = any(li.order_status == OrderItemStatus.READY for li in lines)
+            any_ready = any(
+                int(getattr(li, "items_need_be_collected", 0) or 0) > 0
+                or li.order_status == OrderItemStatus.READY
+                for li in lines
+            )
             any_in_kitchen = any(
-                li.order_status in (OrderItemStatus.NOT_ACCEPTED, OrderItemStatus.PREPARING)
+                int(getattr(li, "items_need_be_ready", 0) or 0) > 0
+                or li.order_status
+                in (OrderItemStatus.NOT_ACCEPTED, OrderItemStatus.PREPARING)
                 for li in lines
             )
             tokens.append(
@@ -68,6 +74,12 @@ class TmsTokenService:
                             "id": li.id,
                             "item_name": li.item_name,
                             "quantity": li.quantity,
+                            "items_need_be_ready": int(
+                                getattr(li, "items_need_be_ready", 0) or 0
+                            ),
+                            "items_need_be_collected": int(
+                                getattr(li, "items_need_be_collected", 0) or 0
+                            ),
                             "order_status": li.order_status.value,
                         }
                         for li in lines

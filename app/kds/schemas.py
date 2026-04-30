@@ -17,3 +17,8 @@ class KdsLineStatusPatch(BaseModel):
     status: OrderItemStatus = Field(
         description="Next line status: NOT_ACCEPTED → PREPARING → READY → COLLECTED",
     )
+    quantity: int | None = Field(
+        default=None,
+        ge=1,
+        description="Optional partial quantity to move. If omitted, moves full line quantity.",
+    )

@@ -23,20 +23,16 @@ from app.kds.notify import emit_kitchen_event, line_ready_speech
 DEFAULT_BOARD_ROWS = 20
 MAX_BOARD_ROWS_CAP = 100
 
-_STATUS_RANK: dict[OrderItemStatus, int] = {
-    OrderItemStatus.NOT_ACCEPTED: 0,
-    OrderItemStatus.PREPARING: 1,
-    OrderItemStatus.READY: 2,
-    OrderItemStatus.COLLECTED: 3,
-}
-
-
-def _validate_transition(current: OrderItemStatus, new: OrderItemStatus) -> None:
-    if _STATUS_RANK[new] < _STATUS_RANK[current]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot move status backward from {current.value} to {new.value}",
-        )
+def _derive_line_status(
+    line: OrderItem, requested_status: OrderItemStatus
+) -> OrderItemStatus:
+    if line.items_need_be_ready <= 0 and line.items_need_be_collected <= 0:
+        return OrderItemStatus.COLLECTED
+    if line.items_need_be_collected > 0 and line.items_need_be_ready <= 0:
+        return OrderItemStatus.READY
+    if line.items_need_be_collected > 0 or line.items_need_be_ready < line.quantity:
+        return OrderItemStatus.PREPARING
+    return requested_status
 
 
 class KdsBoardService:
@@ -118,6 +114,8 @@ class KdsBoardService:
                     "sku_code": li.item_skuid,
                     "item_name": li.item_name,
                     "quantity": li.quantity,
+                    "items_need_be_ready": li.items_need_be_ready,
+                    "items_need_be_collected": li.items_need_be_collected,
                     "order_status": li.order_status.value,
                 }
                 for li in lines
@@ -138,7 +136,7 @@ class KdsBoardService:
         }
 
     async def set_line_item_status(
-        self, line_id: int, new_status: OrderItemStatus
+        self, line_id: int, new_status: OrderItemStatus, quantity: int | None = None
     ) -> dict[str, Any]:
         stmt = (
             select(OrderItem)
@@ -157,8 +155,46 @@ class KdsBoardService:
                 detail="Order is not paid / not on kitchen board",
             )
 
-        _validate_transition(line.order_status, new_status)
-        line.order_status = new_status
+        move_qty = int(quantity) if quantity is not None else int(line.quantity)
+        if move_qty <= 0:
+            raise HTTPException(status_code=400, detail="quantity must be >= 1")
+        if move_qty > int(line.quantity):
+            raise HTTPException(
+                status_code=400,
+                detail=f"quantity cannot exceed line quantity ({line.quantity})",
+            )
+
+        if new_status == OrderItemStatus.NOT_ACCEPTED:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot move status backward to NOT_ACCEPTED",
+            )
+
+        if new_status == OrderItemStatus.PREPARING:
+            line.order_status = OrderItemStatus.PREPARING
+        elif new_status == OrderItemStatus.READY:
+            if move_qty > int(line.items_need_be_ready):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "quantity cannot exceed items_need_be_ready "
+                        f"({line.items_need_be_ready})"
+                    ),
+                )
+            line.items_need_be_ready = int(line.items_need_be_ready) - move_qty
+            line.items_need_be_collected = int(line.items_need_be_collected) + move_qty
+            line.order_status = _derive_line_status(line, new_status)
+        elif new_status == OrderItemStatus.COLLECTED:
+            if move_qty > int(line.items_need_be_collected):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "quantity cannot exceed items_need_be_collected "
+                        f"({line.items_need_be_collected})"
+                    ),
+                )
+            line.items_need_be_collected = int(line.items_need_be_collected) - move_qty
+            line.order_status = _derive_line_status(line, new_status)
         await self.db.commit()
         await self.db.refresh(line)
 
@@ -168,8 +204,10 @@ class KdsBoardService:
             "order_id": order.order_id,
             "kot_code": order.kot_code,
             "item_name": line.item_name,
-            "quantity": line.quantity,
-            "order_status": new_status.value,
+            "quantity": move_qty,
+            "items_need_be_ready": line.items_need_be_ready,
+            "items_need_be_collected": line.items_need_be_collected,
+            "order_status": line.order_status.value,
         }
         await emit_kitchen_event(self.redis, "ITEM_STATUS_CHANGED", payload)
 

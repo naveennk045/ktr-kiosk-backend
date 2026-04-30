@@ -80,7 +80,7 @@ async def kds_patch_line_status(
     service: KdsBoardService = Depends(_kds_service),
 ):
     """Chef advances one line: NOT_ACCEPTED → PREPARING → READY → COLLECTED."""
-    return await service.set_line_item_status(line_id, body.status)
+    return await service.set_line_item_status(line_id, body.status, body.quantity)
 
 
 @router.websocket("/ws")
