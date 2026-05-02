@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
+from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import (
@@ -92,42 +93,62 @@ async def tms_sse(
                 except asyncio.CancelledError:
                     return
 
-        pubsub = redis.pubsub()
-        await pubsub.subscribe(KDS_NOTIFY_CHANNEL)
-        try:
-            while True:
-                try:
-                    msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=25.0)
-                except asyncio.CancelledError:
-                    logger.debug("TMS SSE pubsub cancelled (shutdown / reload)")
-                    break
-                if msg is None:
-                    try:
-                        yield ": ping\n\n"
-                    except asyncio.CancelledError:
-                        break
-                    continue
-                if msg.get("type") == "message" and msg.get("data"):
-                    raw_data = msg["data"]
-                    try:
-                        body = json.loads(raw_data)
-                        p = body.get("payload") or {}
-                        psid = p.get("store_id")
-                        if psid is not None and int(psid) != store_id:
-                            continue
-                    except (json.JSONDecodeError, ValueError, TypeError):
-                        pass
-                    try:
-                        yield f"data: {raw_data}\n\n"
-                    except asyncio.CancelledError:
-                        break
-        finally:
+        reconnect_delay = 1.0
+        while True:
+            pubsub = None
             try:
-                if pubsub is not None:
-                    await pubsub.unsubscribe(KDS_NOTIFY_CHANNEL)
-                    await pubsub.close()
-            except Exception:
-                pass
+                pubsub = redis.pubsub()
+                await pubsub.subscribe(KDS_NOTIFY_CHANNEL)
+                logger.info("TMS SSE subscribed to channel '%s' for store_id=%s", KDS_NOTIFY_CHANNEL, store_id)
+                reconnect_delay = 1.0
+
+                while True:
+                    try:
+                        msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=25.0)
+                    except asyncio.CancelledError:
+                        logger.debug("TMS SSE pubsub cancelled (shutdown / reload)")
+                        return
+                    except RedisConnectionError as conn_err:
+                        logger.warning(
+                            "TMS SSE Redis pubsub disconnected for store_id=%s: %s. Reconnecting...",
+                            store_id,
+                            conn_err,
+                        )
+                        break
+
+                    if msg is None:
+                        try:
+                            yield ": ping\n\n"
+                        except asyncio.CancelledError:
+                            return
+                        continue
+                    if msg.get("type") == "message" and msg.get("data"):
+                        raw_data = msg["data"]
+                        try:
+                            body = json.loads(raw_data)
+                            p = body.get("payload") or {}
+                            psid = p.get("store_id")
+                            if psid is not None and int(psid) != store_id:
+                                continue
+                        except (ValueError, TypeError):
+                            pass
+                        try:
+                            yield f"data: {raw_data}\n\n"
+                        except asyncio.CancelledError:
+                            return
+            finally:
+                try:
+                    if pubsub is not None:
+                        await pubsub.unsubscribe(KDS_NOTIFY_CHANNEL)
+                        await pubsub.close()
+                except Exception:
+                    pass
+
+            try:
+                await asyncio.sleep(reconnect_delay)
+            except asyncio.CancelledError:
+                return
+            reconnect_delay = min(reconnect_delay * 2, 10.0)
 
     return StreamingResponse(
         event_gen(),
