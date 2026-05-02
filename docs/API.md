@@ -99,11 +99,95 @@ Response models: `OrderGridResponse`, `OrderDetailResponse` (see `/docs`).
 
 ## Analytics (`/analytics`)
 
-Requires **`X-Store-Id`**.
+Requires **`X-Store-Id`**. All endpoints count **COMPLETED** orders only in **Asia/Kolkata (IST)** windows.
+
+### Summary KPIs
 
 | Method | Path | Query | Description |
 |--------|------|-------|-------------|
-| `GET` | `/analytics/summary` | `period` (default `all_time`) | KPI summary for **completed** orders only (IST windows). |
+| `GET` | `/analytics/summary` | `period` (default `all_time`) | Revenue, order counts, payment mix for completed orders. |
+
+### Item-wise Analytics
+
+| Method | Path | Query | Description |
+|--------|------|-------|-------------|
+| `GET` | `/analytics/items/top` | `period` (default `today`), `limit` 1–100 (default `10`) | **Top N items** ranked by total quantity sold. |
+| `GET` | `/analytics/items/daily` | `period` (default `today`), `sku` (optional) | **Per-day item counts** — how many of each item ordered each day (IST date). Optionally filter to a single SKU for trend view. |
+| `GET` | `/analytics/items/summary` | `period` (default `today`) | **Full item-wise summary**: all items with qty, revenue, order count, avg qty/order. |
+
+#### `period` values (all endpoints)
+
+| Value | Window (IST) |
+|-------|-------------|
+| `today` | From 00:00 IST today through now |
+| `yesterday` | Full previous IST calendar day |
+| `last_week` | From 00:00 IST seven days ago through now |
+| `all_time` | No date filter |
+
+#### Response — `GET /analytics/items/top`
+
+```json
+{
+  "period": "today",
+  "limit": 10,
+  "items": [
+    {
+      "sku": "10550601",
+      "item_name": "Hot Filter Coffee",
+      "total_quantity": 45,
+      "total_revenue": 4050.0,
+      "order_count": 38
+    }
+  ]
+}
+```
+
+#### Response — `GET /analytics/items/daily?period=last_week`
+
+```json
+{
+  "period": "last_week",
+  "sku_filter": null,
+  "rows": [
+    {
+      "date": "2026-04-26",
+      "sku": "10550601",
+      "item_name": "Hot Filter Coffee",
+      "total_quantity": 18,
+      "order_count": 15
+    },
+    {
+      "date": "2026-04-26",
+      "sku": "10550471",
+      "item_name": "Paneer Mexican Sizzler",
+      "total_quantity": 12,
+      "order_count": 10
+    }
+  ]
+}
+```
+
+Pass `?sku=10550601` to drill into a single item's daily trend.
+
+#### Response — `GET /analytics/items/summary`
+
+```json
+{
+  "period": "today",
+  "total_items_sold": 312,
+  "unique_items": 24,
+  "items": [
+    {
+      "sku": "10550601",
+      "item_name": "Hot Filter Coffee",
+      "total_quantity": 45,
+      "total_revenue": 4050.0,
+      "order_count": 38,
+      "avg_quantity_per_order": 1.18
+    }
+  ]
+}
+```
 
 ---
 
@@ -145,6 +229,12 @@ Response `provider` message is driven by Pine Labs (`EDCInitiateResponse` uses p
 
 | Method | Path | Store selection | Description |
 |--------|------|-----------------|-------------|
+| `GET` | `/admin/stores` | **None** | Returns stores with terminal list + `petpooja_configured`/`phonepe_configured`/`pinelabs_configured`. Query: `active_only=true|false` (default `true`). |
+| `GET` | `/admin/stores/{store_ref}` | **None** | Returns one store detail by numeric `id` or `store_code` (case-insensitive). |
+| `GET` | `/admin/analytics/summary` | **None** | Owner analytics across all stores (combined totals + per-store breakdown). Query: `period=today|yesterday|last_week|all_time` (default `today`), `active_only=true|false` (default `true`). Completed orders only. |
+| `GET` | `/admin/analytics/store-insights` | **None** | Owner decision insights per store: top ordered items, AOV, payment split, top channel. Query: `period`, `active_only`, optional `store_ids`, `store_codes`, `top_n` (default `5`). |
+| `GET` | `/admin/accounting/settlement` | **None** | Detailed financial breakdown by store for reconciliation. Gross vs Net, Total Tax, Gateway (PineLabs) breakdown by Terminal ID, Cash breakdown by Staff. Query: `period=today|yesterday|last_week|all_time`, `active_only=true|false`, optional `store_ids`, `store_codes`. Completed orders only. |
+| `GET` | `/admin/transactions` | **None** | Owner transaction grid across stores with filters and pagination. |
 | `GET` | `/admin/kiosk-config` | **None** | JSON **array** of all **active** stores; each element has **`store_id`**, **`store_code`**, **`store_name`**, **`pinelabs_configured`**, and **`terminals`** (PineLabs `terminal_id`, `pinelabs_store_id`, labels). Use this to configure any outlet; then use **`X-Store-Id`** on other routes. |
 | `GET` | `/admin/cash-pins` | **`X-Store-Id`** required | Staff **`id`** + **`staff_name`** only (no PIN values). |
 | `POST` | `/admin/cache/invalidate` | **`X-Store-Id`** required | Clears Redis cache for that store’s credentials/meta. |
@@ -189,6 +279,177 @@ SSE `message` event payload:
 ```
 
 Frontend table suggestion (columns): `timestamp`, `level`, `logger`, `message`.
+
+### Store discovery examples
+
+#### `GET /admin/stores?active_only=true`
+
+```json
+[
+  {
+    "store_id": 1,
+    "store_code": "KTRBANDRA",
+    "store_name": "KTR Bandra",
+    "is_active": true,
+    "petpooja_configured": true,
+    "phonepe_configured": true,
+    "pinelabs_configured": true,
+    "terminals": [
+      {
+        "id": 1,
+        "terminal_id": "MST2512191529159615649890",
+        "pinelabs_store_id": "KTRVERSOVA",
+        "mid_on_device": null,
+        "label": "Main kiosk",
+        "is_active": true
+      }
+    ]
+  }
+]
+```
+
+#### `GET /admin/stores/KTRBANDRA`
+
+Returns one object in the same schema as above.
+
+### Multi-store analytics example
+
+#### `GET /admin/analytics/summary?period=today&active_only=true`
+
+```json
+{
+  "period": "today",
+  "totalRevenue": 12540.0,
+  "totalOrders": 142,
+  "dineInOrders": 48,
+  "takeAwayOrders": 94,
+  "upiRupees": 8240.0,
+  "cardRupees": 3110.0,
+  "cashRupees": 1190.0,
+  "stores": [
+    {
+      "store_id": 1,
+      "store_code": "KTRBANDRA",
+      "store_name": "KTR Bandra",
+      "totalRevenue": 7420.0,
+      "totalOrders": 83,
+      "dineInOrders": 21,
+      "takeAwayOrders": 62,
+      "upiRupees": 5010.0,
+      "cardRupees": 1700.0,
+      "cashRupees": 710.0
+    },
+    {
+      "store_id": 2,
+      "store_code": "KTRVERSOVA",
+      "store_name": "KTR Versova",
+      "totalRevenue": 5120.0,
+      "totalOrders": 59,
+      "dineInOrders": 27,
+      "takeAwayOrders": 32,
+      "upiRupees": 3230.0,
+      "cardRupees": 1410.0,
+      "cashRupees": 480.0
+    }
+  ]
+}
+```
+
+### Owner Accounting & Settlement example
+
+#### `GET /admin/accounting/settlement?period=today`
+
+```json
+{
+  "period": "today",
+  "stores": [
+    {
+      "store_id": 1,
+      "store_code": "KTRBANDRA",
+      "grossSales": 7420.0,
+      "netSales": 7066.67,
+      "totalTax": 353.33,
+      "takeawayChargesCollected": 150.0,
+      "totalUpi": 5010.0,
+      "totalCard": 1700.0,
+      "totalCash": 710.0,
+      "pineLabsSettlement": [
+        {
+          "terminalId": "MST2512191529159615649890",
+          "cardAmount": 1700.0,
+          "cardTxnCount": 5
+        }
+      ],
+      "cashSettlement": [
+        {
+          "staffName": "Rahul",
+          "cashAmount": 710.0,
+          "cashTxnCount": 3
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Owner transactions filters
+
+#### `GET /admin/transactions`
+
+Supported query params:
+
+- `page`, `size`
+- `sortBy=created_at|amount|order_id`, `sortDir=asc|desc`
+- `period=today|yesterday|last_week|all_time`
+- `start_at`, `end_at` (ISO datetime; optional fine-grained range)
+- `active_only=true|false`
+- `store_ids` (CSV, e.g. `1,2`)
+- `store_codes` (CSV, e.g. `KTRBANDRA,KTRVERSOVA`)
+- `order_type=DINEIN|TAKEAWAY`
+- `payment_status=PENDING|COMPLETED|FAILED`
+- `payment_method=QR|CARD|CASH|MANUAL`
+- `kds_status=NOT_POSTED|PENDING|POSTED|FAILED`
+- `channel`
+- `terminal_id`
+- `search` (matches `order_id` and `kot_code`)
+- `min_amount`, `max_amount`
+
+Example:
+
+`/admin/transactions?period=today&store_codes=KTRBANDRA,KTRVERSOVA&order_type=TAKEAWAY&payment_status=COMPLETED&payment_method=QR&search=KTR-&sortBy=amount&sortDir=desc&page=0&size=20`
+
+### Store insights example
+
+#### `GET /admin/analytics/store-insights?period=today&top_n=5`
+
+```json
+{
+  "period": "today",
+  "totalRevenue": 12540.0,
+  "totalOrders": 142,
+  "averageOrderValue": 88.31,
+  "stores": [
+    {
+      "store_id": 1,
+      "store_code": "KTRBANDRA",
+      "store_name": "KTR Bandra",
+      "totalRevenue": 7420.0,
+      "totalOrders": 83,
+      "averageOrderValue": 89.4,
+      "dineInOrders": 21,
+      "takeAwayOrders": 62,
+      "upiRupees": 5010.0,
+      "cardRupees": 1700.0,
+      "cashRupees": 710.0,
+      "topChannel": "Palas Kiosk",
+      "topItems": [
+        { "itemName": "Hot Filter Coffee", "quantity": 45, "revenue": 4050.0 },
+        { "itemName": "Cold Filter Coffee", "quantity": 28, "revenue": 3360.0 }
+      ]
+    }
+  ]
+}
+```
 
 ---
 

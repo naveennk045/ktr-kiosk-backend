@@ -3,17 +3,23 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Optional
 
-from sqlalchemy import select, func, desc, asc, case
+from sqlalchemy import select, func, desc, asc, case, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models.order import Order, PaymentStatus, OrderType, PaymentMethod
+from app.db.models.order import Order, OrderItem, PaymentStatus, OrderType, PaymentMethod
 from app.dashboard.schemas import (
     AnalyticsSummaryResponse,
     DashboardPeriod,
     OrderGridResponse,
     OrderGridItem,
     OrderDetailResponse,
+    ItemRankEntry,
+    ItemTopResponse,
+    ItemDailyCount,
+    ItemDailyResponse,
+    ItemSummaryEntry,
+    ItemSummaryResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -248,4 +254,122 @@ class DashboardService:
             cash_collected_by_staff_name=getattr(
                 order, "cash_collected_by_staff_name", None
             ),
+        )
+
+    # ─── Item-wise Analytics ───────────────────────────────────────────────────────────
+
+    def _item_base_join(self, time_filters: list):
+        """Common join: order_items ➡ orders (COMPLETED, this store, time window)."""
+        stmt = (
+            select(
+                OrderItem.item_skuid.label("sku"),
+                OrderItem.item_name.label("item_name"),
+                func.sum(OrderItem.quantity).label("total_quantity"),
+                func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue"),
+                func.count(OrderItem.order_id.distinct()).label("order_count"),
+            )
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                Order.store_id == self.store_id,
+                Order.payment_status == PaymentStatus.COMPLETED,
+                *time_filters,
+            )
+            .group_by(OrderItem.item_skuid, OrderItem.item_name)
+        )
+        return stmt
+
+    async def get_top_items(
+        self, period: DashboardPeriod, limit: int = 10
+    ) -> ItemTopResponse:
+        """Return the top `limit` items ranked by total quantity sold in the period."""
+        time_filters = _time_filters_for_period(period)
+        stmt = self._item_base_join(time_filters).order_by(desc("total_quantity")).limit(limit)
+
+        rows = (await self.db.execute(stmt)).all()
+        items = [
+            ItemRankEntry(
+                sku=r.sku,
+                item_name=r.item_name,
+                total_quantity=int(r.total_quantity or 0),
+                total_revenue=float(r.total_revenue or 0),
+                order_count=int(r.order_count or 0),
+            )
+            for r in rows
+        ]
+        return ItemTopResponse(period=period, limit=limit, items=items)
+
+    async def get_daily_item_counts(
+        self, period: DashboardPeriod, sku: Optional[str] = None
+    ) -> ItemDailyResponse:
+        """
+        Return per-day, per-item quantity totals.
+        If `sku` is provided, filter to that single item only.
+        """
+        time_filters = _time_filters_for_period(period)
+
+        stmt = (
+            select(
+                cast(Order.created_at.op("AT TIME ZONE")("Asia/Kolkata"), Date).label("order_date"),
+                OrderItem.item_skuid.label("sku"),
+                OrderItem.item_name.label("item_name"),
+                func.sum(OrderItem.quantity).label("total_quantity"),
+                func.count(OrderItem.order_id.distinct()).label("order_count"),
+            )
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                Order.store_id == self.store_id,
+                Order.payment_status == PaymentStatus.COMPLETED,
+                *time_filters,
+            )
+            .group_by("order_date", OrderItem.item_skuid, OrderItem.item_name)
+            .order_by("order_date", desc("total_quantity"))
+        )
+
+        if sku:
+            stmt = stmt.where(OrderItem.item_skuid == sku)
+
+        rows = (await self.db.execute(stmt)).all()
+        daily_rows = [
+            ItemDailyCount(
+                date=r.order_date,
+                sku=r.sku,
+                item_name=r.item_name,
+                total_quantity=int(r.total_quantity or 0),
+                order_count=int(r.order_count or 0),
+            )
+            for r in rows
+        ]
+        return ItemDailyResponse(period=period, sku_filter=sku, rows=daily_rows)
+
+    async def get_item_summary(
+        self, period: DashboardPeriod
+    ) -> ItemSummaryResponse:
+        """Full per-item stats: qty, revenue, orders, avg qty/order — all COMPLETED orders."""
+        time_filters = _time_filters_for_period(period)
+        stmt = self._item_base_join(time_filters).order_by(desc("total_quantity"))
+
+        rows = (await self.db.execute(stmt)).all()
+
+        items = []
+        total_items_sold = 0
+        for r in rows:
+            qty = int(r.total_quantity or 0)
+            orders = int(r.order_count or 0)
+            total_items_sold += qty
+            items.append(
+                ItemSummaryEntry(
+                    sku=r.sku,
+                    item_name=r.item_name,
+                    total_quantity=qty,
+                    total_revenue=float(r.total_revenue or 0),
+                    order_count=orders,
+                    avg_quantity_per_order=round(qty / orders, 2) if orders else 0.0,
+                )
+            )
+
+        return ItemSummaryResponse(
+            period=period,
+            total_items_sold=total_items_sold,
+            unique_items=len(items),
+            items=items,
         )

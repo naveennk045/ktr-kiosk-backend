@@ -26,10 +26,11 @@ This document is for anyone building the **admin analytics UI** against the KTR 
 | Purpose | Method | Path |
 |---------|--------|------|
 | KPI header (revenue, counts, payment mix) | `GET` | `/analytics/summary` |
+| **Top N items by quantity** | `GET` | `/analytics/items/top` |
+| **Daily item order counts** | `GET` | `/analytics/items/daily` |
+| **Full item-wise summary** | `GET` | `/analytics/items/summary` |
 | Paginated orders | `GET` | `/orders` |
 | Single order (drawer / modal) | `GET` | `/orders/{order_id}` |
-
-Optional later: `/admin/edc-config` — not required for the main dashboard.
 
 ---
 
@@ -293,6 +294,52 @@ export type OrderDetail = {
   paymentMeta: Record<string, unknown> | null;
   createdAt: string;
 };
+
+// ─── Item-wise Analytics ───────────────────────────────────────────────────────
+
+export type ItemRankEntry = {
+  sku: string;
+  item_name: string;
+  total_quantity: number;
+  total_revenue: number;
+  order_count: number;
+};
+
+export type ItemTopResponse = {
+  period: DashboardPeriod;
+  limit: number;
+  items: ItemRankEntry[];
+};
+
+export type ItemDailyCount = {
+  date: string;          // "YYYY-MM-DD" IST date
+  sku: string;
+  item_name: string;
+  total_quantity: number;
+  order_count: number;
+};
+
+export type ItemDailyResponse = {
+  period: DashboardPeriod;
+  sku_filter: string | null;
+  rows: ItemDailyCount[];
+};
+
+export type ItemSummaryEntry = {
+  sku: string;
+  item_name: string;
+  total_quantity: number;
+  total_revenue: number;
+  order_count: number;
+  avg_quantity_per_order: number;
+};
+
+export type ItemSummaryResponse = {
+  period: DashboardPeriod;
+  total_items_sold: number;
+  unique_items: number;
+  items: ItemSummaryEntry[];
+};
 ```
 
 ---
@@ -344,13 +391,21 @@ API base URL: configurable via environment variable (e.g. VITE_API_BASE).
 Endpoints:
 - GET /analytics/summary?period={today|yesterday|last_week|all_time}
   Returns completed-order KPIs only: totalRevenue, totalOrders, dineInOrders, takeAwayOrders, upiRupees, cardRupees, cashRupees (cash+manual tender). Period uses IST on the server.
+- GET /analytics/items/top?period=&limit=
+  Top N items by quantity sold. Returns sku, item_name, total_quantity, total_revenue, order_count.
+- GET /analytics/items/daily?period=&sku=(optional)
+  Per-day item counts. Each row: date (YYYY-MM-DD IST), sku, item_name, total_quantity, order_count.
+  Pass sku to filter to one item for a trend line/bar chart.
+- GET /analytics/items/summary?period=
+  All items: total_quantity, total_revenue, order_count, avg_quantity_per_order. Top-level: total_items_sold, unique_items.
 - GET /orders?period=...&page=&size=&sortBy=&sortDir=&status=&search=
   Returns paginated orders; use the SAME period as analytics so the table matches the date filter.
 - GET /orders/{order_id} for a side drawer with full line items and paymentMeta.
 
 UX:
-- Segmented period control; changing period resets page to 0 and refetches summary + orders in parallel.
+- Segmented period control; changing period resets page to 0 and refetches all analytics + orders in parallel.
 - KPI strip: revenue hero, order count, dine-in vs takeaway, payment method rupee cards; format currency in INR (en-IN).
+- Item analytics section below KPIs: bestsellers bar chart (items/top), daily quantity trend chart (items/daily), and a sortable items table (items/summary).
 - Optional donut chart for UPI/Card/Cash share when data exists.
 - Data table: columns order ID, KOT code, order type, payment type, location, amount, payment status chip, ERP/KDS status, items summary, created time (IST).
 - Row opens drawer with detailed items; defensive parsing for item_name vs name on line items.
@@ -365,13 +420,25 @@ Stack: [React + Vite + TanStack Query + Tailwind] or [Next.js App Router] — pi
 
 ```bash
 # KPIs for today
-curl -s "http://localhost:8000/analytics/summary?period=today" | jq
+curl -s -H "X-Store-Id: 1" "http://localhost:8000/analytics/summary?period=today" | jq
+
+# Top 10 items today
+curl -s -H "X-Store-Id: 1" "http://localhost:8000/analytics/items/top?period=today&limit=10" | jq
+
+# Daily item counts for last week (all items)
+curl -s -H "X-Store-Id: 1" "http://localhost:8000/analytics/items/daily?period=last_week" | jq
+
+# Daily counts for one item (SKU drill-down)
+curl -s -H "X-Store-Id: 1" "http://localhost:8000/analytics/items/daily?period=last_week&sku=10550601" | jq
+
+# Full item summary for all time
+curl -s -H "X-Store-Id: 1" "http://localhost:8000/analytics/items/summary?period=all_time" | jq
 
 # Orders for all time, first page
-curl -s "http://localhost:8000/orders?period=all_time&page=0&size=20" | jq
+curl -s -H "X-Store-Id: 1" "http://localhost:8000/orders?period=all_time&page=0&size=20" | jq
 
 # One order
-curl -s "http://localhost:8000/orders/KTR-1609D08171" | jq
+curl -s -H "X-Store-Id: 1" "http://localhost:8000/orders/KTR-1609D08171" | jq
 ```
 
 ---
@@ -379,3 +446,26 @@ curl -s "http://localhost:8000/orders/KTR-1609D08171" | jq
 ## 10. Changelog reference
 
 If `/analytics/summary` ever gains fields, treat this doc as stale until updated — verify against OpenAPI at `GET /docs` on the running server.
+
+---
+
+## 11. What you can learn about your store (Business Insights)
+
+Using the Admin Dashboard, store owners and managers can extract deep operational and financial insights:
+
+1. **Overall Performance & Growth**
+   - **Total Revenue & Volume:** Quickly see how much money the store made and how many orders were processed today, yesterday, or historically.
+   - **Sales Velocity:** Understand peak hours and off-peak hours (through the activity curves) to better schedule staff.
+
+2. **Customer Behavior & Preferences**
+   - **Dining Preferences:** See the split between Dine-in and Takeaway to understand if your store acts more as a fast-casual spot or a delivery/pickup hub.
+   - **Payment Preferences:** Track how customers prefer to pay (UPI, Card, Cash). This helps in negotiating better rates with payment processors or managing cash-in-drawer limits.
+
+3. **Product Performance (Item Analysis)**
+   - **Bestsellers:** Identify the top-moving items to ensure sufficient stock and prep.
+   - **Revenue Drivers:** Some items sell fewer quantities but drive higher revenue. The item summary reveals exactly which products are most profitable.
+   - **Daily Trends:** Track if a specific item (e.g., Cold Coffee) spikes on certain days (like weekends) to optimize inventory and reduce wastage.
+
+4. **Operational Health**
+   - **Live Transactions:** Monitor the order grid to ensure orders are transitioning smoothly from PENDING to COMPLETED.
+   - **Error Tracking:** The Logs tab helps technical staff or managers quickly identify if a payment terminal or KDS sync is failing in real-time.

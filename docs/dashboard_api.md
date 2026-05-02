@@ -35,6 +35,158 @@ This document focuses on the **Admin Dashboard** APIs.
 
 ---
 
+## 2. Item-wise Analytics
+
+All three endpoints below:
+- Require **`X-Store-Id`** header
+- Count only **COMPLETED** orders
+- Use **Asia/Kolkata (IST)** for date boundaries
+
+### 2.1 Top Items
+
+**Endpoint**: `GET /analytics/items/top`  
+**Purpose**: Rank items by total quantity sold — useful for the "bestsellers" widget.
+
+**Query Parameters**:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `period` | str | `today` | `today`, `yesterday`, `last_week`, `all_time` |
+| `limit` | int | `10` | Number of top items (1–100) |
+
+**Response**:
+```json
+{
+  "period": "today",
+  "limit": 10,
+  "items": [
+    {
+      "sku": "10550601",
+      "item_name": "Hot Filter Coffee",
+      "total_quantity": 45,
+      "total_revenue": 4050.0,
+      "order_count": 38
+    },
+    {
+      "sku": "10550471",
+      "item_name": "Paneer Mexican Sizzler",
+      "total_quantity": 28,
+      "total_revenue": 11172.0,
+      "order_count": 21
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `sku` | `item_skuid` from `order_items` |
+| `item_name` | Display name from the order line |
+| `total_quantity` | Sum of units sold across all orders in the period |
+| `total_revenue` | Sum of `price × quantity` for this item |
+| `order_count` | Number of distinct orders that contained this item |
+
+---
+
+### 2.2 Daily Item Counts
+
+**Endpoint**: `GET /analytics/items/daily`  
+**Purpose**: How many of each item was ordered **per day** — the core "daily item analytics" view.
+
+**Query Parameters**:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `period` | str | `today` | `today`, `yesterday`, `last_week`, `all_time` |
+| `sku` | str | *(omit)* | If provided, returns only rows for that one item SKU (drill-down / trend chart) |
+
+**Response**:
+```json
+{
+  "period": "last_week",
+  "sku_filter": null,
+  "rows": [
+    {
+      "date": "2026-04-26",
+      "sku": "10550601",
+      "item_name": "Hot Filter Coffee",
+      "total_quantity": 18,
+      "order_count": 15
+    },
+    {
+      "date": "2026-04-26",
+      "sku": "10550471",
+      "item_name": "Paneer Mexican Sizzler",
+      "total_quantity": 12,
+      "order_count": 10
+    },
+    {
+      "date": "2026-04-27",
+      "sku": "10550601",
+      "item_name": "Hot Filter Coffee",
+      "total_quantity": 22,
+      "order_count": 19
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `date` | IST calendar date (`YYYY-MM-DD`) |
+| `sku` | Item SKU |
+| `item_name` | Display name |
+| `total_quantity` | Units sold that day |
+| `order_count` | Distinct orders that day containing this item |
+| `sku_filter` | Echo of the `?sku=` param (or `null`) |
+
+**Tip**: Pass `?sku=10550601&period=last_week` to power a single-item line/bar chart.
+
+---
+
+### 2.3 Item Summary
+
+**Endpoint**: `GET /analytics/items/summary`  
+**Purpose**: Full per-item breakdown for a period — all items with quantity, revenue, order count, and average.
+
+**Query Parameters**:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `period` | str | `today` | `today`, `yesterday`, `last_week`, `all_time` |
+
+**Response**:
+```json
+{
+  "period": "today",
+  "total_items_sold": 312,
+  "unique_items": 24,
+  "items": [
+    {
+      "sku": "10550601",
+      "item_name": "Hot Filter Coffee",
+      "total_quantity": 45,
+      "total_revenue": 4050.0,
+      "order_count": 38,
+      "avg_quantity_per_order": 1.18
+    },
+    {
+      "sku": "10550471",
+      "item_name": "Paneer Mexican Sizzler",
+      "total_quantity": 28,
+      "total_revenue": 11172.0,
+      "order_count": 21,
+      "avg_quantity_per_order": 1.33
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `total_items_sold` | Grand total of all units sold (sum of all `total_quantity`) |
+| `unique_items` | Number of distinct SKUs |
+| `avg_quantity_per_order` | `total_quantity ÷ order_count` for that item |
+
+---
+
 ## 2. Order Management
 
 ### Master Order Grid
