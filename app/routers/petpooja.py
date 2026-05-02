@@ -67,11 +67,6 @@ async def petpooja_menu_push(
         content_type,
         len(raw_body),
     )
-    logger.debug(
-        "[MenuWebhook][%s] Raw body preview (first 500 bytes): %s",
-        trace_id,
-        raw_body[:500],
-    )
 
     data = None
     try:
@@ -213,14 +208,14 @@ async def petpooja_callback(request: Request):
     """
     try:
         body_bytes = await request.body()
-        logger.info(f"Petpooja Callback Raw Body: {body_bytes.decode('utf-8')}")
+        logger.info("Petpooja callback received | body_bytes=%s", len(body_bytes))
 
         try:
             data = await request.json()
         except Exception:
             data = {}
 
-        logger.info(f"Petpooja Callback Parsed Data: {data}")
+        logger.info("Petpooja callback parsed | top_level_keys=%s", list(data.keys()))
         return {"status": "success", "message": "Callback received"}
     except Exception as e:
         logger.error(f"Error processing Petpooja callback: {e}", exc_info=True)

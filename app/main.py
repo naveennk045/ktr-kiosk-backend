@@ -1,7 +1,10 @@
 import logging
+import time
+from uuid import uuid4
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request
 import httpx
 import redis.asyncio as redis
 
@@ -103,6 +106,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or str(uuid4())
+    method = request.method
+    path = request.url.path
+    query = request.url.query
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "-")
+    started = time.perf_counter()
+
+    logger.info(
+        "[Access][%s] request_started method=%s path=%s query=%s client_ip=%s ua=%s",
+        request_id,
+        method,
+        path,
+        query or "-",
+        client_ip,
+        user_agent,
+    )
+    try:
+        response = await call_next(request)
+    except Exception:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        logger.exception(
+            "[Access][%s] request_failed method=%s path=%s duration_ms=%s",
+            request_id,
+            method,
+            path,
+            elapsed_ms,
+        )
+        raise
+
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+    response.headers["X-Request-Id"] = request_id
+    logger.info(
+        "[Access][%s] request_completed method=%s path=%s status=%s duration_ms=%s",
+        request_id,
+        method,
+        path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
 
 
 @app.get("/")

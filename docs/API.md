@@ -8,6 +8,7 @@ FastAPI service (default port **8080** via Uvicorn). Interactive schemas: **`GET
 |--------|--------|
 | **Content-Type** | JSON unless noted (`application/json`). |
 | **CORS** | `allow_origins=["*"]` (adjust for production if needed). |
+| **Request tracing** | All HTTP responses include `X-Request-Id`. Send your own `X-Request-Id` header to correlate frontend actions with backend logs. |
 | **Store scoping** | Most kiosk and dashboard routes require header **`X-Store-Id`**. Exception: **`GET /admin/kiosk-config`** returns **all** active stores (no header). Value is either the numeric **`stores.id`** or case-insensitive **`store_code`**. Missing header where required → **400**; unknown/inactive store → **404**. |
 | **Payment routes** | **`X-Store-Id` is not used.** Store is taken from the **order** row (`orders.store_id`) created at order time. |
 | **Petpooja menu webhook** | No `X-Store-Id`; the store is resolved from **`petpooja_restaurant_id`** in the payload vs `store_petpooja_credentials`. |
@@ -147,6 +148,47 @@ Response `provider` message is driven by Pine Labs (`EDCInitiateResponse` uses p
 | `GET` | `/admin/kiosk-config` | **None** | JSON **array** of all **active** stores; each element has **`store_id`**, **`store_code`**, **`store_name`**, **`pinelabs_configured`**, and **`terminals`** (PineLabs `terminal_id`, `pinelabs_store_id`, labels). Use this to configure any outlet; then use **`X-Store-Id`** on other routes. |
 | `GET` | `/admin/cash-pins` | **`X-Store-Id`** required | Staff **`id`** + **`staff_name`** only (no PIN values). |
 | `POST` | `/admin/cache/invalidate` | **`X-Store-Id`** required | Clears Redis cache for that store’s credentials/meta. |
+| `GET` | `/admin/logs` | **None** | Returns latest parsed `app.log` entries for frontend log table. Query: `lines` (default `200`, max `2000`), `contains` (optional case-insensitive filter). |
+| `GET` | `/admin/logs/stream` | **None** | SSE stream for live logs from `app.log`. Query: `initial_lines` (default `50`), `contains` (optional filter). Emits `entry` objects suitable for table append. |
+
+### Admin logs API examples
+
+#### `GET /admin/logs?lines=300&contains=Access`
+
+```json
+{
+  "path": "/root/ktr-kiosk-backend/app.log",
+  "count": 2,
+  "entries": [
+    {
+      "timestamp": "2026-05-02 12:24:46,759",
+      "level": "INFO",
+      "logger": "app.main",
+      "message": "[Access][a0d2...] request_started method=POST path=/payments/qr/init query=- client_ip=10.0.0.3 ua=Mozilla/5.0",
+      "raw": "2026-05-02 12:24:46,759 - [INFO] - app.main - [Access][a0d2...] request_started method=POST path=/payments/qr/init query=- client_ip=10.0.0.3 ua=Mozilla/5.0"
+    }
+  ]
+}
+```
+
+#### `GET /admin/logs/stream?contains=payment&initial_lines=100`
+
+SSE `message` event payload:
+
+```json
+{
+  "type": "log",
+  "entry": {
+    "timestamp": "2026-05-02 12:24:47,040",
+    "level": "INFO",
+    "logger": "app.services.order_service",
+    "message": "KDS sync success | order_id=KTR-1FADC67110 | petpooja_order_id=KTR-1FADC67110",
+    "raw": "2026-05-02 12:24:47,040 - [INFO] - app.services.order_service - KDS sync success | order_id=KTR-1FADC67110 | petpooja_order_id=KTR-1FADC67110"
+  }
+}
+```
+
+Frontend table suggestion (columns): `timestamp`, `level`, `logger`, `message`.
 
 ---
 

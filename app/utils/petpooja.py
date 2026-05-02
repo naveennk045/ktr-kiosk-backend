@@ -95,6 +95,13 @@ class PetpoojaClient:
     async def save_order(self, order_payload: Dict[str, Any]) -> Dict[str, Any]:
         """Pushes an order to Petpooja."""
         url = self.creds.create_order_url
+        client_order_id = (
+            order_payload.get("orderinfo", {})
+            .get("OrderInfo", {})
+            .get("Order", {})
+            .get("details", {})
+            .get("orderID")
+        )
 
         payload_with_auth = {
             "app_key": self.app_key,
@@ -103,8 +110,11 @@ class PetpoojaClient:
             **order_payload,
         }
 
-        logger.info(f"Pushing Order to Petpooja: {url}")
-        logger.info(payload_with_auth)
+        logger.info(
+            "Petpooja save_order request started | url=%s | client_order_id=%s",
+            url,
+            client_order_id,
+        )
 
         try:
             response = await self.client.post(
@@ -115,16 +125,35 @@ class PetpoojaClient:
             )
             response.raise_for_status()
             data = response.json()
-            logger.info(f"Petpooja Save Order Response: {data}")
+            logger.info(
+                "Petpooja save_order response received | client_order_id=%s | success=%s | code=%s | message=%s",
+                client_order_id,
+                data.get("success"),
+                data.get("code"),
+                data.get("message"),
+            )
 
             if data.get("success") != "1":
-                logger.error(f"Petpooja Save Order Failed: {data.get('message')}")
+                logger.error(
+                    "Petpooja save_order failed | client_order_id=%s | message=%s",
+                    client_order_id,
+                    data.get("message"),
+                )
 
             return data
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"Petpooja Save Order HTTP Error: {e.response.status_code} - {e.response.text}")
+            logger.error(
+                "Petpooja save_order HTTP error | client_order_id=%s | status=%s",
+                client_order_id,
+                e.response.status_code,
+            )
             raise
         except Exception as e:
-            logger.error(f"Petpooja Save Order Error: {e}", exc_info=True)
+            logger.error(
+                "Petpooja save_order exception | client_order_id=%s | error=%s",
+                client_order_id,
+                e,
+                exc_info=True,
+            )
             raise

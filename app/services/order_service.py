@@ -239,7 +239,11 @@ class OrderService:
             return False, None
         order = row
 
-        logger.info(f"Syncing order {order.order_id} to Petpooja...")
+        logger.info(
+            "KDS sync started | order_id=%s | store_id=%s",
+            order.order_id,
+            order.store_id,
+        )
 
         if order.kds_status == KdsStatus.POSTED:
             return True, order.kds_invoice_id
@@ -271,17 +275,25 @@ class OrderService:
                 # Petpooja typically returns the order ID in the response
                 server_order_id = response.get("orderID") or response.get("order_id") or order.order_id
                 await self._update_kds_status(order, KdsStatus.POSTED, None, server_order_id)
-                logger.info(f"✅ Petpooja Post Success: {order.order_id} - Response: {response}")
+                logger.info(
+                    "KDS sync success | order_id=%s | petpooja_order_id=%s",
+                    order.order_id,
+                    server_order_id,
+                )
                 return True, server_order_id
             else:
                 error_msg = message or "Unknown error"
                 await self._update_kds_status(order, KdsStatus.FAILED, error_msg)
-                logger.error(f"Petpooja Post Failed: {error_msg} - Response: {response}")
+                logger.error(
+                    "KDS sync failed | order_id=%s | error=%s",
+                    order.order_id,
+                    error_msg,
+                )
                 return False, None
 
         except Exception as e:
             await self._update_kds_status(order, KdsStatus.FAILED, str(e))
-            logger.error(f"Petpooja Post Exception: {e}")
+            logger.error("KDS sync exception | order_id=%s | error=%s", order.order_id, e)
             return False, None
 
     def _construct_petpooja_payload(self, order: Order, catalog: Dict) -> Dict:

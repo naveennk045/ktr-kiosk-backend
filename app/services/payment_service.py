@@ -120,7 +120,7 @@ class PaymentService:
             return order
 
         if order.payment_status == PaymentStatus.PENDING and order.qr_string:
-            logger.info(f"Returning existing QR for pending order {order_id}")
+            logger.info("QR init reused existing pending QR | order_id=%s", order_id)
             return order
 
         pp = await self._phonepe_for_order(order)
@@ -150,8 +150,13 @@ class PaymentService:
             "X-CALLBACK-URL": settings.PHONEPE_CALLBACK_URL,
             "X-CALL-MODE": "POST",
         }
-        logger.info(headers)
-        logger.info(request_payload)
+        logger.info(
+            "QR init request started | order_id=%s | store_id=%s | amount_paise=%s | terminal_id=%s",
+            order_id,
+            order.store_id,
+            amount_paise,
+            terminal_id or "-",
+        )
 
         url = settings.PHONEPE_BASE_URL + endpoint
 
@@ -186,18 +191,26 @@ class PaymentService:
 
             await self.db.commit()
             await self.db.refresh(order)
+            logger.info(
+                "QR init success | order_id=%s | provider_code=%s | qr_present=%s",
+                order_id,
+                code,
+                bool(qr_string),
+            )
             return order
 
         except httpx.HTTPStatusError as e:
             logger.error(
-                f"QR Init HTTP Error: {e.response.status_code} - {e.response.text}"
+                "QR init HTTP error | order_id=%s | status=%s",
+                order_id,
+                e.response.status_code,
             )
             raise HTTPException(
                 status_code=e.response.status_code,
                 detail=f"Payment Gateway Error: {e.response.text}",
             )
         except Exception as e:
-            logger.error(f"QR Init Failed: {e}", exc_info=True)
+            logger.error("QR init failed | order_id=%s | error=%s", order_id, e, exc_info=True)
             raise HTTPException(status_code=502, detail="Payment Gateway Error")
 
     # --- EDC LOGIC (Pine Labs) ---
@@ -211,7 +224,7 @@ class PaymentService:
             return order
 
         if order.payment_status == PaymentStatus.PENDING and order.provider_resp:
-            logger.info(f"Returning existing EDC request for pending order {order_id}")
+            logger.info("EDC init reused existing pending transaction | order_id=%s", order_id)
             return order
 
         pl = await get_pinelabs_shared_cached(self.redis_client, self.db, order.store_id)
@@ -260,14 +273,18 @@ class PaymentService:
             "Content-Type": "application/json",
         }
 
-        logger.info(f"Initiating Pine Labs EDC: {url}")
-        logger.info(request_payload)
+        logger.info(
+            "EDC init request started | order_id=%s | store_id=%s | terminal_id=%s | amount_paise=%s",
+            order_id,
+            order.store_id,
+            terminal_id,
+            amount_paise,
+        )
 
         try:
             resp = await self.http_client.post(url, json=request_payload, headers=headers, timeout=30.0)
             resp.raise_for_status()
             payload = resp.json()
-            logger.info(f"Pine Labs Response: {payload}")
 
             plutus_ref_id = payload.get("PlutusTransactionReferenceID")
 
@@ -280,13 +297,22 @@ class PaymentService:
 
             await self.db.commit()
             await self.db.refresh(order)
+            logger.info(
+                "EDC init success | order_id=%s | provider_ref_id=%s",
+                order_id,
+                order.provider_reference_id,
+            )
             return order
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"Pine Labs Init HTTP Error: {e.response.status_code} - {e.response.text}")
+            logger.error(
+                "EDC init HTTP error | order_id=%s | status=%s",
+                order_id,
+                e.response.status_code,
+            )
             raise HTTPException(status_code=e.response.status_code, detail=f"EDC Gateway Error: {e.response.text}")
         except Exception as e:
-            logger.error(f"Pine Labs Init Failed: {e}", exc_info=True)
+            logger.error("EDC init failed | order_id=%s | error=%s", order_id, e, exc_info=True)
             raise HTTPException(status_code=502, detail="EDC Error")
 
     # --- CASH LOGIC ---
@@ -403,8 +429,6 @@ class PaymentService:
             resp = await self.http_client.post(url, json=payload, headers=headers, timeout=50.0)
             data = resp.json()
 
-            logger.info(f"Pine Labs Status Response: {data}")
-
             response_code = data.get("ResponseCode")
 
             prev_status = order.payment_status
@@ -422,6 +446,12 @@ class PaymentService:
                 order.provider_resp = data
                 order.provider_code = str(response_code)
                 await self.db.commit()
+                logger.info(
+                    "EDC status updated | order_id=%s | response_code=%s | payment_status=%s",
+                    order.order_id,
+                    response_code,
+                    order.payment_status.value,
+                )
 
             if new_status == PaymentStatus.COMPLETED:
                 await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
@@ -432,7 +462,12 @@ class PaymentService:
             return order
 
         except Exception as e:
-            logger.error(f"Pine Labs Status Check Error: {e}", exc_info=True)
+            logger.error(
+                "EDC status check error | order_id=%s | error=%s",
+                order.order_id,
+                e,
+                exc_info=True,
+            )
             return order
 
     async def _check_phonepe_status(self, order: Order):
@@ -466,6 +501,12 @@ class PaymentService:
                 order.provider_code = code
                 order.provider_resp = data
                 await self.db.commit()
+                logger.info(
+                    "PhonePe status updated | order_id=%s | code=%s | payment_status=%s",
+                    order.order_id,
+                    code,
+                    order.payment_status.value,
+                )
 
             if new_status == PaymentStatus.COMPLETED:
                 await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
@@ -476,10 +517,19 @@ class PaymentService:
             return order
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"Status Check HTTP Error: {e.response.status_code} - {e.response.text}")
+            logger.error(
+                "PhonePe status check HTTP error | order_id=%s | status=%s",
+                order.order_id,
+                e.response.status_code,
+            )
             return order
         except Exception as e:
-            logger.error(f"Status Check Error: {e}", exc_info=True)
+            logger.error(
+                "PhonePe status check error | order_id=%s | error=%s",
+                order.order_id,
+                e,
+                exc_info=True,
+            )
             return order
 
     async def handle_webhook(self, merchant_order_id: str, code: str, payload: dict):
@@ -487,9 +537,10 @@ class PaymentService:
         result = await self.db.execute(stmt)
         order = result.scalar_one_or_none()
         if not order:
-            logger.error(f"Order {merchant_order_id} not found during webhook processing")
+            logger.error("Webhook order not found | order_id=%s", merchant_order_id)
             return
 
+        logger.info("Webhook processing started | order_id=%s | code=%s", merchant_order_id, code)
         prev_status = order.payment_status
         order.provider_code = code
         order.provider_resp = payload
@@ -501,6 +552,11 @@ class PaymentService:
 
         await self.db.commit()
         await self.db.refresh(order)
+        logger.info(
+            "Webhook status persisted | order_id=%s | payment_status=%s",
+            merchant_order_id,
+            order.payment_status.value,
+        )
 
         if order.payment_status == PaymentStatus.COMPLETED:
             await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
@@ -516,7 +572,7 @@ class PaymentService:
         http_client: httpx.AsyncClient,
         redis_client: redis.Redis,
     ):
-        logger.info(f"Background webhook task running for order {merchant_order_id}...")
+        logger.info("Background webhook task started | order_id=%s", merchant_order_id)
 
         async with SessionLocal() as db:
             payment_service = PaymentService(db, http_client, redis_client)

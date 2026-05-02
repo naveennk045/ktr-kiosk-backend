@@ -1,8 +1,15 @@
 from collections import defaultdict
+from collections import deque
+import asyncio
+import json
+import os
+from pathlib import Path
+import re
 from typing import List
 
 import redis.asyncio as redis
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +20,40 @@ from app.db.models.store import KioskTerminal, Store, StorePinelabsCredentials
 from app.services.store_cache import invalidate_store_cache
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+LOG_FILE_PATH = Path("app.log")
+LOG_LINE_PATTERN = re.compile(
+    r"^(?P<timestamp>[^-]+?)\s+-\s+\[(?P<level>[A-Z]+)\]\s+-\s+(?P<logger>[^-]+?)\s+-\s+(?P<message>.*)$"
+)
+
+
+def _tail_lines(path: Path, max_lines: int) -> list[str]:
+    """Return last N lines from a UTF-8 text file."""
+    with path.open("r", encoding="utf-8", errors="replace") as f:
+        return [line.rstrip("\n") for line in deque(f, maxlen=max_lines)]
+
+
+def _parse_log_line(line: str) -> dict:
+    """
+    Parse standard app log format into frontend-friendly fields.
+    Falls back to `raw` only if format does not match.
+    """
+    match = LOG_LINE_PATTERN.match(line)
+    if not match:
+        return {
+            "timestamp": None,
+            "level": "UNKNOWN",
+            "logger": None,
+            "message": line,
+            "raw": line,
+        }
+    data = match.groupdict()
+    return {
+        "timestamp": data["timestamp"].strip(),
+        "level": data["level"].strip(),
+        "logger": data["logger"].strip(),
+        "message": data["message"],
+        "raw": line,
+    }
 
 
 class KioskTerminalItem(BaseModel):
@@ -119,3 +160,74 @@ async def invalidate_store_caches(
     """Bust Redis cache for this store (credentials + meta)."""
     await invalidate_store_cache(redis_client, store.id)
     return {"status": "ok", "store_id": store.id}
+
+
+@router.get("/logs")
+async def get_app_logs(
+    lines: int = Query(200, ge=1, le=2000),
+    contains: str | None = Query(None, description="Optional case-insensitive line filter"),
+):
+    """
+    Return recent lines from `app.log` for frontend diagnostics.
+    """
+    if not LOG_FILE_PATH.exists():
+        raise HTTPException(status_code=404, detail="Log file not found")
+
+    rows = await asyncio.to_thread(_tail_lines, LOG_FILE_PATH, lines)
+    if contains:
+        needle = contains.lower()
+        rows = [line for line in rows if needle in line.lower()]
+
+    return {
+        "path": str(LOG_FILE_PATH.resolve()),
+        "count": len(rows),
+        "entries": [_parse_log_line(line) for line in rows],
+    }
+
+
+@router.get("/logs/stream")
+async def stream_app_logs(
+    request: Request,
+    contains: str | None = Query(None, description="Optional case-insensitive line filter"),
+    initial_lines: int = Query(50, ge=0, le=500),
+):
+    """
+    SSE stream of `app.log` so frontend can watch logs in real-time.
+    """
+    if not LOG_FILE_PATH.exists():
+        raise HTTPException(status_code=404, detail="Log file not found")
+
+    async def event_gen():
+        needle = contains.lower() if contains else None
+        if initial_lines > 0:
+            for line in await asyncio.to_thread(_tail_lines, LOG_FILE_PATH, initial_lines):
+                if needle and needle not in line.lower():
+                    continue
+                yield f"data: {json.dumps({'type': 'log', 'entry': _parse_log_line(line)})}\n\n"
+
+        with LOG_FILE_PATH.open("r", encoding="utf-8", errors="replace") as fp:
+            fp.seek(0, os.SEEK_END)
+            while True:
+                if await request.is_disconnected():
+                    break
+
+                line = await asyncio.to_thread(fp.readline)
+                if not line:
+                    yield ": ping\n\n"
+                    await asyncio.sleep(1.0)
+                    continue
+
+                value = line.rstrip("\n")
+                if needle and needle not in value.lower():
+                    continue
+                yield f"data: {json.dumps({'type': 'log', 'entry': _parse_log_line(value)})}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

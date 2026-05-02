@@ -68,13 +68,15 @@ async def handle_callback(
 
     if calculated_hash != x_verify:
         logger.warning(
-            f"Signature verification failed. Expected: {calculated_hash}, Got: {x_verify}"
+            "PhonePe callback signature verification failed | order_id=%s",
+            merchant_order_id,
         )
         raise HTTPException(status_code=401, detail="Invalid Signature")
 
     code = payload_outer.get("code")
 
     if merchant_order_id:
+        logger.info("PhonePe callback accepted | order_id=%s | code=%s", merchant_order_id, code)
         background_tasks.add_task(
             PaymentService.run_webhook_in_background,
             merchant_order_id=merchant_order_id,
@@ -84,6 +86,6 @@ async def handle_callback(
             redis_client=redis_client,
         )
     else:
-        logger.warning("Callback received without merchantOrderId")
+        logger.warning("PhonePe callback received without merchantOrderId")
 
     return {"status": "ok"}
