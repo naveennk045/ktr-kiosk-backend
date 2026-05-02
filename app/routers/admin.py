@@ -828,7 +828,7 @@ async def get_accounting_settlement(
             func.count(Order.id).label("cnt"),
         )
         .where(*card_filters)
-        .group_by(Order.store_id, func.coalesce(Order.terminal_id, "Unknown"))
+        .group_by(Order.store_id, Order.terminal_id)
     )
     pinelabs_rows = (await db.execute(pinelabs_stmt)).all()
     
@@ -852,7 +852,7 @@ async def get_accounting_settlement(
             func.count(Order.id).label("cnt"),
         )
         .where(*cash_filters)
-        .group_by(Order.store_id, func.coalesce(Order.cash_collected_by_staff_name, "Unknown/Manual"))
+        .group_by(Order.store_id, Order.cash_collected_by_staff_name)
     )
     cash_rows = (await db.execute(cash_stmt)).all()
 
