@@ -141,10 +141,9 @@ async def petpooja_menu_push(
             "message": f"No kiosk store configured for Petpooja restaurant id {rest_id}.",
         }
     logger.info(
-        "[MenuWebhook][%s] Step 5/7 store mapping resolved | store_id=%s | credential_id=%s",
+        "[MenuWebhook][%s] Step 5/7 store mapping resolved | store_id=%s",
         trace_id,
         ppc.store_id,
-        ppc.id,
     )
 
     try:

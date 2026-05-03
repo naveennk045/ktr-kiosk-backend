@@ -90,7 +90,7 @@ Requires **`X-Store-Id`**. Same path prefix as create; method distinguishes **GE
 
 | Method | Path | Query | Description |
 |--------|------|-------|-------------|
-| `GET` | `/orders/` | `page`, `size`, `sortBy`, `sortDir`, `period`, `status`, `search` | Paginated grid; `period`: `today`, `yesterday`, `last_week`, `all_time` (IST). |
+| `GET` | `/orders/` | `page`, `size`, `sortBy`, `sortDir`, `period`, `from_date`, `to_date`, `status`, `search` | Paginated grid; `period`: `today`, `yesterday`, `last_week`, `all_time`, `custom_range` (IST). Use `from_date`/`to_date` (`YYYY-MM-DD`) with `period=custom_range`. |
 | `GET` | `/orders/{order_id}` | — | Full order detail for dashboard. |
 
 Response models: `OrderGridResponse`, `OrderDetailResponse` (see `/docs`).
@@ -105,30 +105,48 @@ Requires **`X-Store-Id`**. All endpoints count **COMPLETED** orders only in **As
 
 | Method | Path | Query | Description |
 |--------|------|-------|-------------|
-| `GET` | `/analytics/summary` | `period` (default `all_time`) | Revenue, order counts, payment mix for completed orders. |
+| `GET` | `/analytics/summary` | `period` (default `all_time`), `from_date`, `to_date` | Revenue, order counts, payment mix for completed orders. |
 
 ### Item-wise Analytics
 
 | Method | Path | Query | Description |
 |--------|------|-------|-------------|
-| `GET` | `/analytics/items/top` | `period` (default `today`), `limit` 1–100 (default `10`) | **Top N items** ranked by total quantity sold. |
-| `GET` | `/analytics/items/daily` | `period` (default `today`), `sku` (optional) | **Per-day item counts** — how many of each item ordered each day (IST date). Optionally filter to a single SKU for trend view. |
-| `GET` | `/analytics/items/summary` | `period` (default `today`) | **Full item-wise summary**: all items with qty, revenue, order count, avg qty/order. |
+| `GET` | `/analytics/items/top` | `period` (default `today`), `from_date`, `to_date`, `limit` 1–100 (default `10`) | **Top N items** ranked by total quantity sold. |
+| `GET` | `/analytics/items/daily` | `period` (default `today`), `from_date`, `to_date`, `sku` (optional) | **Per-day item counts** — how many of each item ordered each day (IST date). Optionally filter to a single SKU for trend view. |
+| `GET` | `/analytics/items/summary` | `period` (default `today`), `from_date`, `to_date` | **Full item-wise summary**: all items with qty, revenue, order count, avg qty/order. |
 
-#### `period` values (all endpoints)
+#### `period` values (all analytics endpoints)
 
-| Value | Window (IST) |
-|-------|-------------|
-| `today` | From 00:00 IST today through now |
-| `yesterday` | Full previous IST calendar day |
-| `last_week` | From 00:00 IST seven days ago through now |
-| `all_time` | No date filter |
+| Value | Window (IST) | Notes |
+|-------|-------------|-------|
+| `today` | From 00:00 IST today through now | — |
+| `yesterday` | Full previous IST calendar day | — |
+| `last_week` | From 00:00 IST seven days ago through now | — |
+| `all_time` | No date filter | — |
+| `custom_range` | Defined by `from_date` and `to_date` | Both params are optional; omitting one makes that bound open-ended |
+
+#### Custom date range
+
+Pass `period=custom_range` along with `from_date` and/or `to_date` (format: `YYYY-MM-DD`, IST):
+
+- `from_date` — start of range, **inclusive** (00:00:00 IST)
+- `to_date` — end of range, **inclusive** (23:59:59 IST)
+
+Example:
+```
+GET /analytics/summary?period=custom_range&from_date=2026-04-01&to_date=2026-04-30
+GET /analytics/items/top?period=custom_range&from_date=2026-05-01&to_date=2026-05-02&limit=5
+```
+
+All analytics responses echo back the `from_date` and `to_date` fields (null for non-custom periods).
 
 #### Response — `GET /analytics/items/top`
 
 ```json
 {
   "period": "today",
+  "from_date": null,
+  "to_date": null,
   "limit": 10,
   "items": [
     {
@@ -142,11 +160,24 @@ Requires **`X-Store-Id`**. All endpoints count **COMPLETED** orders only in **As
 }
 ```
 
+With `custom_range`:
+```json
+{
+  "period": "custom_range",
+  "from_date": "2026-04-01",
+  "to_date": "2026-04-30",
+  "limit": 5,
+  "items": [...]
+}
+```
+
 #### Response — `GET /analytics/items/daily?period=last_week`
 
 ```json
 {
   "period": "last_week",
+  "from_date": null,
+  "to_date": null,
   "sku_filter": null,
   "rows": [
     {
@@ -174,6 +205,8 @@ Pass `?sku=10550601` to drill into a single item's daily trend.
 ```json
 {
   "period": "today",
+  "from_date": null,
+  "to_date": null,
   "total_items_sold": 312,
   "unique_items": 24,
   "items": [
@@ -231,9 +264,9 @@ Response `provider` message is driven by Pine Labs (`EDCInitiateResponse` uses p
 |--------|------|-----------------|-------------|
 | `GET` | `/admin/stores` | **None** | Returns stores with terminal list + `petpooja_configured`/`phonepe_configured`/`pinelabs_configured`. Query: `active_only=true|false` (default `true`). |
 | `GET` | `/admin/stores/{store_ref}` | **None** | Returns one store detail by numeric `id` or `store_code` (case-insensitive). |
-| `GET` | `/admin/analytics/summary` | **None** | Owner analytics across all stores (combined totals + per-store breakdown). Query: `period=today|yesterday|last_week|all_time` (default `today`), `active_only=true|false` (default `true`). Completed orders only. |
-| `GET` | `/admin/analytics/store-insights` | **None** | Owner decision insights per store: top ordered items, AOV, payment split, top channel. Query: `period`, `active_only`, optional `store_ids`, `store_codes`, `top_n` (default `5`). |
-| `GET` | `/admin/accounting/settlement` | **None** | Detailed financial breakdown by store for reconciliation. Gross vs Net, Total Tax, Gateway (PineLabs) breakdown by Terminal ID, Cash breakdown by Staff. Query: `period=today|yesterday|last_week|all_time`, `active_only=true|false`, optional `store_ids`, `store_codes`. Completed orders only. |
+| `GET` | `/admin/analytics/summary` | **None** | Owner analytics across all stores (combined totals + per-store breakdown). Query: `period` (default `today`), `from_date`, `to_date`, `active_only=true\|false` (default `true`). Completed orders only. |
+| `GET` | `/admin/analytics/store-insights` | **None** | Owner decision insights per store: top ordered items, AOV, payment split, top channel. Query: `period`, `from_date`, `to_date`, `active_only`, optional `store_ids`, `store_codes`, `top_n` (default `5`). |
+| `GET` | `/admin/accounting/settlement` | **None** | Detailed financial breakdown by store for reconciliation. Gross vs Net, Total Tax, Gateway (PineLabs) breakdown by Terminal ID, Cash breakdown by Staff. Query: `period`, `from_date`, `to_date`, `active_only=true\|false`, optional `store_ids`, `store_codes`. Completed orders only. |
 | `GET` | `/admin/transactions` | **None** | Owner transaction grid across stores with filters and pagination. |
 | `GET` | `/admin/kiosk-config` | **None** | JSON **array** of all **active** stores; each element has **`store_id`**, **`store_code`**, **`store_name`**, **`pinelabs_configured`**, and **`terminals`** (PineLabs `terminal_id`, `pinelabs_store_id`, labels). Use this to configure any outlet; then use **`X-Store-Id`** on other routes. |
 | `GET` | `/admin/cash-pins` | **`X-Store-Id`** required | Staff **`id`** + **`staff_name`** only (no PIN values). |
@@ -312,6 +345,28 @@ Frontend table suggestion (columns): `timestamp`, `level`, `logger`, `message`.
 
 Returns one object in the same schema as above.
 
+### Admin analytics — `period` values
+
+All three admin analytics endpoints (`/admin/analytics/summary`, `/admin/analytics/store-insights`, `/admin/accounting/settlement`) support the same `period` values as the store-level endpoints:
+
+| Value | Window (IST) | Notes |
+|-------|-------------|-------|
+| `today` | From 00:00 IST today through now | Default for admin endpoints |
+| `yesterday` | Full previous IST calendar day | — |
+| `last_week` | From 00:00 IST seven days ago through now | — |
+| `all_time` | No date filter | — |
+| `custom_range` | Defined by `from_date` and `to_date` | Both params optional; omitting one makes that bound open-ended |
+
+#### Custom date range (admin)
+
+```
+GET /admin/analytics/summary?period=custom_range&from_date=2026-04-01&to_date=2026-04-30
+GET /admin/analytics/store-insights?period=custom_range&from_date=2026-05-01&to_date=2026-05-02
+GET /admin/accounting/settlement?period=custom_range&from_date=2026-04-01&to_date=2026-04-30
+```
+
+All three responses echo back `from_date` and `to_date` (null for non-custom periods).
+
 ### Multi-store analytics example
 
 #### `GET /admin/analytics/summary?period=today&active_only=true`
@@ -319,6 +374,8 @@ Returns one object in the same schema as above.
 ```json
 {
   "period": "today",
+  "from_date": null,
+  "to_date": null,
   "totalRevenue": 12540.0,
   "totalOrders": 142,
   "dineInOrders": 48,
@@ -355,6 +412,19 @@ Returns one object in the same schema as above.
 }
 ```
 
+#### `GET /admin/analytics/summary?period=custom_range&from_date=2026-04-01&to_date=2026-04-30`
+
+```json
+{
+  "period": "custom_range",
+  "from_date": "2026-04-01",
+  "to_date": "2026-04-30",
+  "totalRevenue": 384200.0,
+  "totalOrders": 4380,
+  "stores": [...]
+}
+```
+
 ### Owner Accounting & Settlement example
 
 #### `GET /admin/accounting/settlement?period=today`
@@ -362,6 +432,8 @@ Returns one object in the same schema as above.
 ```json
 {
   "period": "today",
+  "from_date": null,
+  "to_date": null,
   "stores": [
     {
       "store_id": 1,
@@ -389,6 +461,17 @@ Returns one object in the same schema as above.
       ]
     }
   ]
+}
+```
+
+#### `GET /admin/accounting/settlement?period=custom_range&from_date=2026-04-01&to_date=2026-04-30`
+
+```json
+{
+  "period": "custom_range",
+  "from_date": "2026-04-01",
+  "to_date": "2026-04-30",
+  "stores": [...]
 }
 ```
 
@@ -425,6 +508,8 @@ Example:
 ```json
 {
   "period": "today",
+  "from_date": null,
+  "to_date": null,
   "totalRevenue": 12540.0,
   "totalOrders": 142,
   "averageOrderValue": 88.31,
