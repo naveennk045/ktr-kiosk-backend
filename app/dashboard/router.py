@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -26,11 +27,19 @@ orders_read_router = APIRouter()
 async def get_analytics_summary(
     period: DashboardPeriod = Query(
         "all_time",
-        description="IST window: today, yesterday, last 7 days (from 00:00), or all completed orders.",
+        description="IST window: today, yesterday, last_7_days, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
     ),
     service: DashboardService = Depends(get_dashboard_service),
 ):
-    return await service.get_analytics_summary(period)
+    return await service.get_analytics_summary(period, from_date, to_date)
 
 
 @orders_read_router.get("/", response_model=OrderGridResponse)
@@ -43,12 +52,20 @@ async def get_orders(
         "all_time",
         description="Same IST windows as /analytics/summary.",
     ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
     status: Optional[str] = None,
     search: Optional[str] = None,
     service: DashboardService = Depends(get_dashboard_service),
 ):
     return await service.get_orders_grid(
-        page, size, sortBy, sortDir, period, status, search
+        page, size, sortBy, sortDir, period, status, search, from_date, to_date
     )
 
 
@@ -69,7 +86,15 @@ async def get_order_detail(
 async def get_top_items(
     period: DashboardPeriod = Query(
         "today",
-        description="IST window: today, yesterday, last_week, or all_time.",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
     ),
     limit: int = Query(
         10,
@@ -85,14 +110,22 @@ async def get_top_items(
     Returns each item's SKU, name, total quantity sold, total revenue generated,
     and the number of orders that contained it.
     """
-    return await service.get_top_items(period, limit)
+    return await service.get_top_items(period, limit, from_date, to_date)
 
 
 @analytics_router.get("/items/daily", response_model=ItemDailyResponse)
 async def get_daily_item_counts(
     period: DashboardPeriod = Query(
         "today",
-        description="IST window: today, yesterday, last_week, or all_time.",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
     ),
     sku: Optional[str] = Query(
         None,
@@ -106,14 +139,22 @@ async def get_daily_item_counts(
     Each row contains: date (IST), sku, item_name, total_quantity, order_count.
     Optionally pass `sku` to drill into a specific item's daily trend.
     """
-    return await service.get_daily_item_counts(period, sku)
+    return await service.get_daily_item_counts(period, sku, from_date, to_date)
 
 
 @analytics_router.get("/items/summary", response_model=ItemSummaryResponse)
 async def get_item_summary(
     period: DashboardPeriod = Query(
         "today",
-        description="IST window: today, yesterday, last_week, or all_time.",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
     ),
     service: DashboardService = Depends(get_dashboard_service),
 ):
@@ -128,4 +169,4 @@ async def get_item_summary(
 
     Also returns aggregate `total_items_sold` and `unique_items` at the top level.
     """
-    return await service.get_item_summary(period)
+    return await service.get_item_summary(period, from_date, to_date)

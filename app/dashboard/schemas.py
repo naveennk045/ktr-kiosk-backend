@@ -3,12 +3,14 @@ from typing import List, Literal, Optional
 from datetime import date, datetime
 from app.db.models.order import OrderType, PaymentStatus
 
-DashboardPeriod = Literal["today", "yesterday", "last_week", "all_time"]
+DashboardPeriod = Literal["today", "yesterday", "last_week", "all_time", "custom_range"]
 
 
 class AnalyticsSummaryResponse(BaseModel):
     """Completed orders only; time window is in Asia/Kolkata (IST)."""
     period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
     totalRevenue: float
     totalOrders: int
     dineInOrders: int
@@ -66,6 +68,8 @@ class ItemRankEntry(BaseModel):
 class ItemTopResponse(BaseModel):
     """Top N items ranked by quantity sold."""
     period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
     limit: int
     items: List[ItemRankEntry]
 
@@ -82,6 +86,8 @@ class ItemDailyCount(BaseModel):
 class ItemDailyResponse(BaseModel):
     """Per-day breakdown of item quantities. Optionally filtered by SKU."""
     period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
     sku_filter: Optional[str]
     rows: List[ItemDailyCount]
 
@@ -99,6 +105,8 @@ class ItemSummaryEntry(BaseModel):
 class ItemSummaryResponse(BaseModel):
     """All items with their aggregated statistics for the period."""
     period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
     total_items_sold: int  # sum of all quantities
     unique_items: int
     items: List[ItemSummaryEntry]

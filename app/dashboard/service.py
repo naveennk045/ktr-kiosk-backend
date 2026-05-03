@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Optional
 
@@ -27,8 +27,15 @@ logger = logging.getLogger(__name__)
 IST = ZoneInfo("Asia/Kolkata")
 
 
-def _time_filters_for_period(period: DashboardPeriod) -> list:
-    """IST calendar boundaries. last_week = from 00:00 seven days ago through now."""
+def _time_filters_for_period(
+    period: DashboardPeriod,
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
+) -> list:
+    """IST calendar boundaries. last_week = from 00:00 seven days ago through now.
+    For custom_range, from_date (inclusive 00:00 IST) and to_date (inclusive 23:59:59 IST)
+    are used. If only one bound is supplied, the other is open-ended.
+    """
     now = datetime.now(IST)
     if period == "all_time":
         return []
@@ -42,6 +49,15 @@ def _time_filters_for_period(period: DashboardPeriod) -> list:
     if period == "last_week":
         start = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
         return [Order.created_at >= start]
+    if period == "custom_range":
+        filters = []
+        if from_date:
+            start_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0, tzinfo=IST)
+            filters.append(Order.created_at >= start_dt)
+        if to_date:
+            end_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, 999999, tzinfo=IST)
+            filters.append(Order.created_at <= end_dt)
+        return filters
     raise ValueError(f"Unknown period: {period}")
 
 
@@ -50,8 +66,13 @@ class DashboardService:
         self.db = db
         self.store_id = store_id
 
-    async def get_analytics_summary(self, period: DashboardPeriod) -> AnalyticsSummaryResponse:
-        time_filters = _time_filters_for_period(period)
+    async def get_analytics_summary(
+        self,
+        period: DashboardPeriod,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+    ) -> AnalyticsSummaryResponse:
+        time_filters = _time_filters_for_period(period, from_date, to_date)
         base = [
             Order.store_id == self.store_id,
             Order.payment_status == PaymentStatus.COMPLETED,
@@ -106,6 +127,8 @@ class DashboardService:
 
         return AnalyticsSummaryResponse(
             period=period,
+            from_date=from_date,
+            to_date=to_date,
             totalRevenue=_f(total_revenue),
             totalOrders=int(total_orders or 0),
             dineInOrders=int(dine_in or 0),
@@ -124,6 +147,8 @@ class DashboardService:
         period: DashboardPeriod,
         status: Optional[str] = None,
         search: Optional[str] = None,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
     ) -> OrderGridResponse:
 
         # Base Query
@@ -133,7 +158,7 @@ class DashboardService:
             .where(Order.store_id == self.store_id)
         )
 
-        for cond in _time_filters_for_period(period):
+        for cond in _time_filters_for_period(period, from_date, to_date):
             stmt = stmt.where(cond)
 
         # Filtering
@@ -279,10 +304,12 @@ class DashboardService:
         return stmt
 
     async def get_top_items(
-        self, period: DashboardPeriod, limit: int = 10
+        self, period: DashboardPeriod, limit: int = 10,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
     ) -> ItemTopResponse:
         """Return the top `limit` items ranked by total quantity sold in the period."""
-        time_filters = _time_filters_for_period(period)
+        time_filters = _time_filters_for_period(period, from_date, to_date)
         stmt = self._item_base_join(time_filters).order_by(desc("total_quantity")).limit(limit)
 
         rows = (await self.db.execute(stmt)).all()
@@ -296,16 +323,18 @@ class DashboardService:
             )
             for r in rows
         ]
-        return ItemTopResponse(period=period, limit=limit, items=items)
+        return ItemTopResponse(period=period, from_date=from_date, to_date=to_date, limit=limit, items=items)
 
     async def get_daily_item_counts(
-        self, period: DashboardPeriod, sku: Optional[str] = None
+        self, period: DashboardPeriod, sku: Optional[str] = None,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
     ) -> ItemDailyResponse:
         """
         Return per-day, per-item quantity totals.
         If `sku` is provided, filter to that single item only.
         """
-        time_filters = _time_filters_for_period(period)
+        time_filters = _time_filters_for_period(period, from_date, to_date)
 
         stmt = (
             select(
@@ -339,13 +368,15 @@ class DashboardService:
             )
             for r in rows
         ]
-        return ItemDailyResponse(period=period, sku_filter=sku, rows=daily_rows)
+        return ItemDailyResponse(period=period, from_date=from_date, to_date=to_date, sku_filter=sku, rows=daily_rows)
 
     async def get_item_summary(
-        self, period: DashboardPeriod
+        self, period: DashboardPeriod,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
     ) -> ItemSummaryResponse:
         """Full per-item stats: qty, revenue, orders, avg qty/order — all COMPLETED orders."""
-        time_filters = _time_filters_for_period(period)
+        time_filters = _time_filters_for_period(period, from_date, to_date)
         stmt = self._item_base_join(time_filters).order_by(desc("total_quantity"))
 
         rows = (await self.db.execute(stmt)).all()
@@ -369,6 +400,8 @@ class DashboardService:
 
         return ItemSummaryResponse(
             period=period,
+            from_date=from_date,
+            to_date=to_date,
             total_items_sold=total_items_sold,
             unique_items=len(items),
             items=items,

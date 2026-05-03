@@ -1,12 +1,12 @@
 from collections import defaultdict
 from collections import deque
 import asyncio
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import json
 import os
 from pathlib import Path
 import re
-from typing import List
+from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import redis.asyncio as redis
@@ -122,6 +122,8 @@ class StoreAnalyticsItem(BaseModel):
 
 class MultiStoreAnalyticsResponse(BaseModel):
     period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
     totalRevenue: float
     totalOrders: int
     dineInOrders: int
@@ -156,6 +158,8 @@ class StoreOwnerInsight(BaseModel):
 
 class OwnerInsightsResponse(BaseModel):
     period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
     totalRevenue: float
     totalOrders: int
     averageOrderValue: float
@@ -190,6 +194,8 @@ class AccountingSettlementStore(BaseModel):
 
 class AccountingSettlementResponse(BaseModel):
     period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
     stores: List[AccountingSettlementStore]
 
 
@@ -235,7 +241,15 @@ def _parse_csv_strs(value: str | None) -> list[str]:
     return [x.strip() for x in value.split(",") if x.strip()]
 
 
-def _time_filters_for_period(period: DashboardPeriod) -> list:
+def _time_filters_for_period(
+    period: DashboardPeriod,
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
+) -> list:
+    """IST calendar boundaries. For custom_range, from_date (inclusive 00:00 IST)
+    and to_date (inclusive 23:59:59 IST) are used. If only one bound is supplied,
+    the other is open-ended.
+    """
     now = datetime.now(IST)
     if period == "all_time":
         return []
@@ -249,6 +263,15 @@ def _time_filters_for_period(period: DashboardPeriod) -> list:
     if period == "last_week":
         start = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
         return [Order.created_at >= start]
+    if period == "custom_range":
+        filters = []
+        if from_date:
+            start_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0, tzinfo=IST)
+            filters.append(Order.created_at >= start_dt)
+        if to_date:
+            end_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, 999999, tzinfo=IST)
+            filters.append(Order.created_at <= end_dt)
+        return filters
     raise ValueError(f"Unknown period: {period}")
 
 
@@ -350,7 +373,15 @@ async def get_multi_store_analytics(
     db: AsyncSession = Depends(get_db),
     period: DashboardPeriod = Query(
         "today",
-        description="IST window: today, yesterday, last_week, all_time",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
     ),
     active_only: bool = Query(True, description="Include only active stores when true"),
 ):
@@ -365,6 +396,8 @@ async def get_multi_store_analytics(
     if not stores:
         return MultiStoreAnalyticsResponse(
             period=period,
+            from_date=from_date,
+            to_date=to_date,
             totalRevenue=0.0,
             totalOrders=0,
             dineInOrders=0,
@@ -381,7 +414,7 @@ async def get_multi_store_analytics(
     filters = [
         Order.store_id.in_(store_ids),
         Order.payment_status == PaymentStatus.COMPLETED,
-        *_time_filters_for_period(period),
+        *_time_filters_for_period(period, from_date, to_date),
     ]
 
     grouped_stmt = (
@@ -461,6 +494,8 @@ async def get_multi_store_analytics(
 
     return MultiStoreAnalyticsResponse(
         period=period,
+        from_date=from_date,
+        to_date=to_date,
         totalRevenue=round(sum(s.totalRevenue for s in store_items), 2),
         totalOrders=sum(s.totalOrders for s in store_items),
         dineInOrders=sum(s.dineInOrders for s in store_items),
@@ -605,7 +640,18 @@ async def get_admin_transactions(
 @router.get("/analytics/store-insights", response_model=OwnerInsightsResponse)
 async def get_store_owner_insights(
     db: AsyncSession = Depends(get_db),
-    period: DashboardPeriod = Query("today"),
+    period: DashboardPeriod = Query(
+        "today",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
+    ),
     active_only: bool = Query(True),
     store_ids: str | None = Query(None, description="CSV list, e.g. 1,2"),
     store_codes: str | None = Query(None, description="CSV list, e.g. KTRBANDRA,KTRVERSOVA"),
@@ -630,6 +676,8 @@ async def get_store_owner_insights(
     if not stores:
         return OwnerInsightsResponse(
             period=period,
+            from_date=from_date,
+            to_date=to_date,
             totalRevenue=0.0,
             totalOrders=0,
             averageOrderValue=0.0,
@@ -642,7 +690,7 @@ async def get_store_owner_insights(
     filters = [
         Order.store_id.in_(selected_store_ids),
         Order.payment_status == PaymentStatus.COMPLETED,
-        *_time_filters_for_period(period),
+        *_time_filters_for_period(period, from_date, to_date),
     ]
 
     summary_stmt = (
@@ -752,6 +800,8 @@ async def get_store_owner_insights(
     total_orders_all = sum(s.totalOrders for s in store_insights)
     return OwnerInsightsResponse(
         period=period,
+        from_date=from_date,
+        to_date=to_date,
         totalRevenue=total_revenue_all,
         totalOrders=total_orders_all,
         averageOrderValue=round(total_revenue_all / total_orders_all, 2) if total_orders_all else 0.0,
@@ -762,7 +812,18 @@ async def get_store_owner_insights(
 @router.get("/accounting/settlement", response_model=AccountingSettlementResponse)
 async def get_accounting_settlement(
     db: AsyncSession = Depends(get_db),
-    period: DashboardPeriod = Query("today"),
+    period: DashboardPeriod = Query(
+        "today",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
+    ),
     active_only: bool = Query(True),
     store_ids: str | None = Query(None, description="CSV list, e.g. 1,2"),
     store_codes: str | None = Query(None, description="CSV list, e.g. KTRBANDRA,KTRVERSOVA"),
@@ -785,14 +846,14 @@ async def get_accounting_settlement(
 
     stores = (await db.execute(store_stmt)).scalars().all()
     if not stores:
-        return AccountingSettlementResponse(period=period, stores=[])
+        return AccountingSettlementResponse(period=period, from_date=from_date, to_date=to_date, stores=[])
 
     selected_store_ids = [s.id for s in stores]
     
     filters = [
         Order.store_id.in_(selected_store_ids),
         Order.payment_status == PaymentStatus.COMPLETED,
-        *_time_filters_for_period(period),
+        *_time_filters_for_period(period, from_date, to_date),
     ]
 
     # Gross, Net, Takeaway, Payment types
@@ -897,7 +958,9 @@ async def get_accounting_settlement(
 
     return AccountingSettlementResponse(
         period=period,
-        stores=store_settlements
+        from_date=from_date,
+        to_date=to_date,
+        stores=store_settlements,
     )
 
 @router.get("/kiosk-config", response_model=List[KioskConfigResponse])
