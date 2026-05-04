@@ -90,7 +90,7 @@ Requires **`X-Store-Id`**. Same path prefix as create; method distinguishes **GE
 
 | Method | Path | Query | Description |
 |--------|------|-------|-------------|
-| `GET` | `/orders/` | `page`, `size`, `sortBy`, `sortDir`, `period`, `from_date`, `to_date`, `status`, `search` | Paginated grid; `period`: `today`, `yesterday`, `last_week`, `all_time`, `custom_range` (IST). Use `from_date`/`to_date` (`YYYY-MM-DD`) with `period=custom_range`. |
+| `GET` | `/orders/` | `page`, `size`, `sortBy`, `sortDir`, `period`, `from_date`, `to_date`, `start_at`, `end_at`, `status`, `order_type`, `payment_status`, `payment_method`, `kds_status`, `channel`, `terminal_id`, `min_amount`, `max_amount`, `search` | Paginated grid; `period`: `today`, `yesterday`, `last_week`, `all_time`, `custom_range` (IST). Use `from_date`/`to_date` (`YYYY-MM-DD`) with `period=custom_range`. |
 | `GET` | `/orders/{order_id}` | — | Full order detail for dashboard. |
 
 Response models: `OrderGridResponse`, `OrderDetailResponse` (see `/docs`).
@@ -483,7 +483,7 @@ Supported query params:
 
 - `page`, `size`
 - `sortBy=created_at|amount|order_id`, `sortDir=asc|desc`
-- `period=today|yesterday|last_week|all_time`
+- `period=today|yesterday|last_week|all_time|custom_range` (with `from_date` and `to_date` formatted as `YYYY-MM-DD`)
 - `start_at`, `end_at` (ISO datetime; optional fine-grained range)
 - `active_only=true|false`
 - `store_ids` (CSV, e.g. `1,2`)

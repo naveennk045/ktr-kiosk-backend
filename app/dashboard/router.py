@@ -1,8 +1,9 @@
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.db.models.order import OrderType, PaymentStatus, PaymentMethod, KdsStatus
 
 from app.dashboard.dependencies import get_dashboard_service
 from app.dashboard.schemas import (
@@ -62,10 +63,22 @@ async def get_orders(
     ),
     status: Optional[str] = None,
     search: Optional[str] = None,
+    start_at: datetime | None = Query(None, description="Optional UTC/ISO start datetime"),
+    end_at: datetime | None = Query(None, description="Optional UTC/ISO end datetime"),
+    order_type: OrderType | None = Query(None),
+    payment_status: PaymentStatus | None = Query(None),
+    payment_method: PaymentMethod | None = Query(None),
+    kds_status: KdsStatus | None = Query(None),
+    channel: str | None = Query(None),
+    terminal_id: str | None = Query(None),
+    min_amount: float | None = Query(None, ge=0),
+    max_amount: float | None = Query(None, ge=0),
     service: DashboardService = Depends(get_dashboard_service),
 ):
     return await service.get_orders_grid(
-        page, size, sortBy, sortDir, period, status, search, from_date, to_date
+        page, size, sortBy, sortDir, period, status, search, from_date, to_date,
+        start_at, end_at, order_type, payment_status, payment_method, kds_status,
+        channel, terminal_id, min_amount, max_amount
     )
 
 

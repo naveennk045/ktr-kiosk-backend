@@ -515,6 +515,8 @@ async def get_admin_transactions(
     sortBy: str = Query("created_at", pattern="^(created_at|amount|order_id)$"),
     sortDir: str = Query("desc", pattern="^(asc|desc)$"),
     period: DashboardPeriod = Query("all_time"),
+    from_date: Optional[date] = Query(None, description="Start date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD."),
+    to_date: Optional[date] = Query(None, description="End date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD."),
     start_at: datetime | None = Query(None, description="Optional UTC/ISO start datetime"),
     end_at: datetime | None = Query(None, description="Optional UTC/ISO end datetime"),
     active_only: bool = Query(True),
@@ -556,7 +558,7 @@ async def get_admin_transactions(
     if active_only:
         filters.append(Store.is_active.is_(True))
 
-    for cond in _time_filters_for_period(period):
+    for cond in _time_filters_for_period(period, from_date, to_date):
         filters.append(cond)
     if start_at:
         filters.append(Order.created_at >= start_at)

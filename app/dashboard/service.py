@@ -7,7 +7,7 @@ from sqlalchemy import select, func, desc, asc, case, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models.order import Order, OrderItem, PaymentStatus, OrderType, PaymentMethod
+from app.db.models.order import Order, OrderItem, PaymentStatus, OrderType, PaymentMethod, KdsStatus
 from app.dashboard.schemas import (
     AnalyticsSummaryResponse,
     DashboardPeriod,
@@ -149,6 +149,16 @@ class DashboardService:
         search: Optional[str] = None,
         from_date: Optional[date] = None,
         to_date: Optional[date] = None,
+        start_at: Optional[datetime] = None,
+        end_at: Optional[datetime] = None,
+        order_type: Optional[OrderType] = None,
+        payment_status: Optional[PaymentStatus] = None,
+        payment_method: Optional[PaymentMethod] = None,
+        kds_status: Optional[KdsStatus] = None,
+        channel: Optional[str] = None,
+        terminal_id: Optional[str] = None,
+        min_amount: Optional[float] = None,
+        max_amount: Optional[float] = None,
     ) -> OrderGridResponse:
 
         # Base Query
@@ -164,9 +174,32 @@ class DashboardService:
         # Filtering
         if status:
             stmt = stmt.where(Order.payment_status == status)
+        if payment_status:
+            stmt = stmt.where(Order.payment_status == payment_status)
+        if order_type:
+            stmt = stmt.where(Order.order_type == order_type)
+        if payment_method:
+            stmt = stmt.where(Order.payment_method == payment_method)
+        if kds_status:
+            stmt = stmt.where(Order.kds_status == kds_status)
+        if channel:
+            stmt = stmt.where(Order.channel.ilike(f"%{channel}%"))
+        if terminal_id:
+            stmt = stmt.where(Order.terminal_id == terminal_id)
+        if min_amount is not None:
+            stmt = stmt.where(Order.total_amount_include_tax >= min_amount)
+        if max_amount is not None:
+            stmt = stmt.where(Order.total_amount_include_tax <= max_amount)
+        if start_at:
+            stmt = stmt.where(Order.created_at >= start_at)
+        if end_at:
+            stmt = stmt.where(Order.created_at <= end_at)
 
         if search:
-            stmt = stmt.where(Order.order_id.ilike(f"%{search}%"))
+            search_term = f"%{search}%"
+            stmt = stmt.where(
+                (Order.order_id.ilike(search_term)) | (Order.kot_code.ilike(search_term))
+            )
 
         # Counting for pagination
         count_stmt = select(func.count()).select_from(stmt.subquery())
