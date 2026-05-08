@@ -53,8 +53,18 @@ def _tail_lines(path: Path, max_lines: int) -> list[str]:
 def _parse_log_line(line: str) -> dict:
     """
     Parse standard app log format into frontend-friendly fields.
-    Falls back to `raw` only if format does not match.
+    Now supports JSON structured logging as the primary format,
+    falling back to legacy text matching for older lines.
     """
+    try:
+        data = json.loads(line)
+        # Ensure 'raw' is set for frontend consistency
+        data["raw"] = line
+        return data
+    except Exception:
+        pass
+
+    # Fallback for old text logs
     match = LOG_LINE_PATTERN.match(line)
     if not match:
         return {

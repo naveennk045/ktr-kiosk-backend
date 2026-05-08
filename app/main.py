@@ -17,16 +17,11 @@ from app.dashboard import analytics_router, orders_read_router
 from app.kds.router import router as kds_router
 from app.tms.router import router as tms_router
 
-# Configure Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-    ]
-)
+from app.core.logger import setup_logging, request_id_var
+import json
 
+# Configure Logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -111,44 +106,61 @@ app.add_middleware(
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid4())
+    request_id_var.set(request_id)
+    
+    body_json = None
+    try:
+        if "application/json" in request.headers.get("content-type", ""):
+            body = await request.body()
+            if body:
+                # Recreate the stream for downstream consumers
+                async def receive():
+                    return {"type": "http.request", "body": body}
+                request._receive = receive
+                
+                try:
+                    body_json = json.loads(body)
+                except Exception:
+                    body_json = "<invalid_json>"
+    except Exception:
+        pass
+
     method = request.method
     path = request.url.path
-    query = request.url.query
+    query = request.url.query.decode("utf-8") if request.url.query else ""
     client_ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "-")
     started = time.perf_counter()
 
+    extra_data = {
+        "method": method,
+        "path": path,
+        "query": query,
+        "client_ip": client_ip,
+        "user_agent": user_agent,
+    }
+    if body_json is not None:
+        extra_data["request_body"] = body_json
+
     logger.info(
-        "[Access][%s] request_started method=%s path=%s query=%s client_ip=%s ua=%s",
-        request_id,
-        method,
-        path,
-        query or "-",
-        client_ip,
-        user_agent,
+        f"request_started method={method} path={path}",
+        extra={"extra_data": extra_data}
     )
     try:
         response = await call_next(request)
     except Exception:
         elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
         logger.exception(
-            "[Access][%s] request_failed method=%s path=%s duration_ms=%s",
-            request_id,
-            method,
-            path,
-            elapsed_ms,
+            f"request_failed method={method} path={path} duration_ms={elapsed_ms}",
+            extra={"extra_data": {"duration_ms": elapsed_ms}}
         )
         raise
 
     elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
     response.headers["X-Request-Id"] = request_id
     logger.info(
-        "[Access][%s] request_completed method=%s path=%s status=%s duration_ms=%s",
-        request_id,
-        method,
-        path,
-        response.status_code,
-        elapsed_ms,
+        f"request_completed method={method} path={path} status={response.status_code} duration_ms={elapsed_ms}",
+        extra={"extra_data": {"status_code": response.status_code, "duration_ms": elapsed_ms}}
     )
     return response
 
