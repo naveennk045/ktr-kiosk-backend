@@ -127,7 +127,7 @@ async def request_logging_middleware(request: Request, call_next):
 
     method = request.method
     path = request.url.path
-    query = request.url.query.decode("utf-8") if request.url.query else ""
+    query = request.url.query if request.url.query else ""
     client_ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "-")
     started = time.perf_counter()
