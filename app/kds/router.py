@@ -141,6 +141,9 @@ async def kds_websocket(
             except asyncio.CancelledError:
                 logger.debug("KDS WS pubsub cancelled (shutdown / reload)")
                 break
+            except Exception as e:
+                logger.warning("KDS WS pubsub get_message error (likely connection closed): %s", e)
+                break
             if msg and msg.get("type") == "message" and msg.get("data"):
                 raw_data = msg["data"]
                 try:

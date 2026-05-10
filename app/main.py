@@ -45,7 +45,9 @@ async def lifespan(app: FastAPI):
     try:
         app.state.redis_client = redis.from_url(
             settings.REDIS_HOST,
-            decode_responses=True
+            decode_responses=True,
+            health_check_interval=30,
+            socket_keepalive=True,
         )
         await app.state.redis_client.ping()
         logger.info("Successfully connected to Redis.")
