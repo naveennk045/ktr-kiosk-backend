@@ -30,7 +30,14 @@ def _get_db_config():
     if url_obj.drivername.startswith("postgres"):
         url_obj = url_obj.set(drivername="postgresql+asyncpg")
 
-    connect_args = {"timeout": 10.0}
+    connect_args = {
+        "timeout": 10.0,
+        "server_settings": {
+            "jit": "off"
+        },
+        "prepared_statement_cache_size": 0,
+        "statement_cache_size": 0,
+    }
 
     # asyncpg does not support 'sslmode' in query params
     # We strip it and pass 'ssl' in connect_args
