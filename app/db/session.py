@@ -32,9 +32,7 @@ def _get_db_config():
 
     connect_args = {
         "timeout": 10.0,
-        "server_settings": {
-            "jit": "off"
-        },
+        "server_settings": {},
         "prepared_statement_cache_size": 0,
         "statement_cache_size": 0,
     }
