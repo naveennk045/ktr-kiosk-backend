@@ -10,7 +10,7 @@ import redis.asyncio as redis
 
 from app.db.session import engine, Base, SessionLocal
 from app.db.bootstrap import ensure_default_store
-from .routers import catalog, order, admin, petpooja
+from .routers import catalog, order, admin, petpooja, itemdetails
 from .routers.payment import payment
 from app.core.config import settings
 from app.dashboard import analytics_router, orders_read_router
@@ -183,3 +183,4 @@ app.include_router(admin.router)
 app.include_router(petpooja.router, prefix="/petpooja", tags=["petpooja"])
 app.include_router(kds_router, prefix="/kds", tags=["kds"])
 app.include_router(tms_router, prefix="/tms", tags=["tms"])
+app.include_router(itemdetails.router, prefix="/itemdetails", tags=["itemdetails"])

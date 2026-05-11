@@ -37,6 +37,34 @@ Requires **`X-Store-Id`**. Uses Redis + DB menu + Petpooja (via `CatalogService`
 
 ---
 
+## Item Details (`/itemdetails`)
+
+Endpoints for the "immediate availability" feature, allowing the frontend to pull a base menu template and save an updated subset directly to the store's catalog cache.
+
+Requires **`X-Store-Id`** header on all requests.
+
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| `GET` | `/itemdetails/` | — | Fetches the base default menu template (always reads from `menus` table where `id = 17`). Use this as the starting point for your updates. |
+| `POST` | `/itemdetails/` | JSON `{"items": [...], "categories": [...]}` | Saves the updated items list for the current store as a new row with provider `ktr-one`. Strictly validates that only `items` and `categories` are provided. Automatically wipes the Redis catalog cache for the store so subsequent `/catalog/` fetches use this fresh data. |
+
+### `POST /itemdetails/` Payload Validation
+The API strictly enforces the payload structure. Providing any top-level keys other than `items` and `categories` will result in a `422 Unprocessable Entity` error.
+
+**Valid Example:**
+```json
+{
+  "items": [
+    { "itemid": "123", "itemname": "Dosa", "price": 100 }
+  ],
+  "categories": [
+    { "categoryid": "1", "categoryname": "South Indian" }
+  ]
+}
+```
+
+---
+
 ## Orders — create (`POST /orders/`)
 
 Requires **`X-Store-Id`**.

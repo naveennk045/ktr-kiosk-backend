@@ -136,7 +136,7 @@ class CatalogService:
             try:
                 result = await db.execute(
                     select(Menu)
-                    .filter(Menu.provider == "petpooja", Menu.store_id == self.store_id)
+                    .filter(Menu.provider.in_(["petpooja", "ktr-one"]), Menu.store_id == self.store_id)
                     .order_by(Menu.id.desc())
                     .limit(1)
                 )
