@@ -30,7 +30,10 @@ async def get_item_details(
     Get the default menu (id=17).
     """
     logger.info(f"Fetching default menu id=17 for store {store.id}")
-    result = await db.execute(select(Menu).filter(Menu.id == 17))
+    menu_id = 17
+    if store.id == 2:
+        menu_id = 33
+    result = await db.execute(select(Menu).filter(Menu.id == menu_id))
     default_menu = result.scalar_one_or_none()
 
     if default_menu and default_menu.data:
