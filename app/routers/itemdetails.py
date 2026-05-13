@@ -26,13 +26,13 @@ async def get_item_details(
     store: Store = Depends(get_store_context),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Get the default menu (id=17).
-    """
-    logger.info(f"Fetching default menu id=17 for store {store.id}")
+ 
     menu_id = 17
     if store.id == 2:
-        menu_id = 33
+        menu_id = 34
+
+    logger.info(f"Fetching default menu id={menu_id} for store {store.id}")
+
     result = await db.execute(select(Menu).filter(Menu.id == menu_id))
     default_menu = result.scalar_one_or_none()
 
