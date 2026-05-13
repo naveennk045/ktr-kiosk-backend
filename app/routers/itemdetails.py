@@ -26,10 +26,10 @@ async def get_item_details(
     store: Store = Depends(get_store_context),
     db: AsyncSession = Depends(get_db),
 ):
- 
+
     menu_id = 17
     if store.id == 2:
-        menu_id = 34
+        menu_id = 38
 
     logger.info(f"Fetching default menu id={menu_id} for store {store.id}")
 

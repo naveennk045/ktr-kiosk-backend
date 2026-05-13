@@ -83,6 +83,24 @@ async def kds_patch_line_status(
     return await service.set_line_item_status(line_id, body.status, body.quantity)
 
 
+@router.post("/items/{line_id}/announce")
+async def kds_announce_line_item(
+    line_id: int,
+    service: KdsBoardService = Depends(_kds_service),
+):
+    """Staff triggers the 'Food is ready' announcement again for a specific item."""
+    return await service.announce_line_item(line_id)
+
+
+@router.post("/orders/{order_id}/announce")
+async def kds_announce_order(
+    order_id: int,
+    service: KdsBoardService = Depends(_kds_service),
+):
+    """Staff triggers the 'Food is ready' announcement again for the whole order."""
+    return await service.announce_order(order_id)
+
+
 @router.websocket("/ws")
 async def kds_websocket(
     websocket: WebSocket,

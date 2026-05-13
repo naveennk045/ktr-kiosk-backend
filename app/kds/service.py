@@ -229,3 +229,60 @@ class KdsBoardService:
         )
 
         return payload
+
+    async def announce_line_item(self, line_id: int) -> dict[str, Any]:
+        stmt = (
+            select(OrderItem)
+            .join(Order)
+            .where(OrderItem.id == line_id, Order.store_id == self.store_id)
+            .options(selectinload(OrderItem.order))
+        )
+        line = (await self.db.execute(stmt)).scalar_one_or_none()
+        if not line:
+            raise HTTPException(status_code=404, detail="Order line not found")
+
+        order = line.order
+        speech = line_ready_speech(order.kot_code, line.item_name or "")
+
+        payload: dict[str, Any] = {
+            "store_id": self.store_id,
+            "line_id": line.id,
+            "order_id": order.order_id,
+            "kot_code": order.kot_code,
+            "item_name": line.item_name,
+            "quantity": line.quantity,
+            "items_need_be_ready": line.items_need_be_ready,
+            "items_need_be_collected": line.items_need_be_collected,
+            "order_status": line.order_status.value,
+        }
+
+        await emit_kitchen_event(
+            self.redis,
+            "TMS_ANNOUNCE",
+            {
+                **payload,
+                "speech": speech,
+            },
+        )
+        return payload
+
+    async def announce_order(self, order_pk: int) -> dict[str, Any]:
+        stmt = (
+            select(Order)
+            .where(Order.id == order_pk, Order.store_id == self.store_id)
+        )
+        order = (await self.db.execute(stmt)).scalar_one_or_none()
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        speech = line_ready_speech(order.kot_code, "")
+        
+        payload: dict[str, Any] = {
+            "store_id": self.store_id,
+            "order_id": order.order_id,
+            "kot_code": order.kot_code,
+            "speech": speech,
+        }
+
+        await emit_kitchen_event(self.redis, "TMS_ANNOUNCE", payload)
+        return payload
