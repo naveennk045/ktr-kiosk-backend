@@ -27,7 +27,7 @@ async def get_item_details(
     db: AsyncSession = Depends(get_db),
 ):
 
-    menu_id = 17
+    menu_id = 1
     # if store.id == 2:
     #     menu_id = 38
 
