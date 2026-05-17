@@ -158,7 +158,6 @@ class OrderService:
         # 3. Generate IDs
         full_uuid = str(uuid.uuid4()).upper()
         order_id = f"KTR-{full_uuid[0:8]}{full_uuid[10:12]}"
-        kot_date, kot_number, kot_code = await self._generate_next_kot()
 
         # 4. Create order header (lines live in `order_items`)
         new_order = Order(
@@ -171,9 +170,9 @@ class OrderService:
             total_amount_include_tax=math.ceil(backend_total_inc),
             takeaway_charges_exclude_tax=tw_exc,
             takeaway_charges_include_tax=tw_inc,
-            kot_date=kot_date,
-            kot_number=kot_number,
-            kot_code=kot_code,
+            kot_date=None,
+            kot_number=None,
+            kot_code=None,
             payment_status=PaymentStatus.PENDING,
             kds_status=KdsStatus.NOT_POSTED,
         )
@@ -222,6 +221,17 @@ class OrderService:
 
         counter.last_number += 1
         return today, counter.last_number, f"KTR-{counter.last_number}"
+
+    async def assign_kot_if_needed(self, order: Order) -> Order:
+        if order.kot_code is None:
+            kot_date, kot_number, kot_code = await self._generate_next_kot()
+            order.kot_date = kot_date
+            order.kot_number = kot_number
+            order.kot_code = kot_code
+            await self.db.commit()
+            await self.db.refresh(order)
+            logger.info("Assigned KOT | order_id=%s | kot_code=%s", order.order_id, kot_code)
+        return order
 
     # --- 2. KDS Posting Logic ---
     async def sync_order_to_kds(self, order: Order) -> tuple[bool, str | None]:

@@ -90,9 +90,9 @@ class Order(Base):
         server_default=text("0"),
     )
 
-    kot_date = Column(Date, index=True, nullable=False)
-    kot_number = Column(Integer, nullable=False)
-    kot_code = Column(String, nullable=False, index=True)
+    kot_date = Column(Date, index=True, nullable=True)
+    kot_number = Column(Integer, nullable=True)
+    kot_code = Column(String, nullable=True, index=True)
 
     payment_method = Column(Enum(PaymentMethod), nullable=True)
     payment_status = Column(

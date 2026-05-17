@@ -361,9 +361,10 @@ class PaymentService:
         await self.db.commit()
         await self.db.refresh(order)
 
+        osvc = await self._order_service_for_order(order)
+        await osvc.assign_kot_if_needed(order)
         await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
         await self._emit_board_refresh_if_newly_completed(order, prev_status)
-        osvc = await self._order_service_for_order(order)
         await osvc.sync_order_to_kds(order)
 
         return order
@@ -454,9 +455,10 @@ class PaymentService:
                 )
 
             if new_status == PaymentStatus.COMPLETED:
+                osvc = await self._order_service_for_order(order)
+                await osvc.assign_kot_if_needed(order)
                 await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
                 await self._emit_board_refresh_if_newly_completed(order, prev_status)
-                osvc = await self._order_service_for_order(order)
                 await osvc.sync_order_to_kds(order)
 
             return order
@@ -509,9 +511,10 @@ class PaymentService:
                 )
 
             if new_status == PaymentStatus.COMPLETED:
+                osvc = await self._order_service_for_order(order)
+                await osvc.assign_kot_if_needed(order)
                 await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
                 await self._emit_board_refresh_if_newly_completed(order, prev_status)
-                osvc = await self._order_service_for_order(order)
                 await osvc.sync_order_to_kds(order)
 
             return order
@@ -559,9 +562,10 @@ class PaymentService:
         )
 
         if order.payment_status == PaymentStatus.COMPLETED:
+            osvc = await self._order_service_for_order(order)
+            await osvc.assign_kot_if_needed(order)
             await self._auto_mark_lines_preparing_if_newly_completed(order, prev_status)
             await self._emit_board_refresh_if_newly_completed(order, prev_status)
-            osvc = await self._order_service_for_order(order)
             await osvc.sync_order_to_kds(order)
 
     @staticmethod

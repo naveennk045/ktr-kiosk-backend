@@ -28,8 +28,8 @@ async def get_item_details(
 ):
 
     menu_id = 17
-    if store.id == 2:
-        menu_id = 38
+    # if store.id == 2:
+    #     menu_id = 38
 
     logger.info(f"Fetching default menu id={menu_id} for store {store.id}")
 

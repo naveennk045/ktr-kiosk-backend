@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
-from app.db.models.order import OrderType
+from app.db.models.order import OrderType, PaymentStatus
 
 class AddonItemCreate(BaseModel):
     """
@@ -38,7 +38,7 @@ class OrderCreateResponse(BaseModel):
     order_id: str
     amount_with_tax: float = Field(serialization_alias="total_amount_include_tax")
     amount_without_tax: float = Field(serialization_alias="total_amount_exclude_tax")
-    kot_code: str
+    payment_status: PaymentStatus
     order_type: OrderType
     takeaway_charges_without_tax: float
     takeaway_charges_with_tax: float
