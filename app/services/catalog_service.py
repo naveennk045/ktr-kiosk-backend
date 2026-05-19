@@ -217,14 +217,11 @@ class CatalogService:
         # --- Category images ---
         categories = catalog_data.get("categories", [])
         for category in categories:
-            if self.store_id == 2:
-                category["imageURL"] = ""
-            else:
-                cat_id = str(category.get("categoryId"))
-                if cat_id in CATEGORY_IMAGES:
-                    category["imageURL"] = CATEGORY_IMAGES[cat_id]
-                elif category.get("category_image_url"):
-                    category["imageURL"] = category["category_image_url"]
+            cat_id = str(category.get("categoryId"))
+            if cat_id in CATEGORY_IMAGES:
+                category["imageURL"] = CATEGORY_IMAGES[cat_id]
+            elif category.get("category_image_url"):
+                category["imageURL"] = category["category_image_url"]
 
         categories.sort(key=lambda c: int(c["categoryrank"]) if c.get("categoryrank") is not None else 999)
 
