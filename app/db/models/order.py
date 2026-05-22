@@ -11,6 +11,8 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     text,
+    BigInteger,
+    Boolean,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -124,6 +126,13 @@ class Order(Base):
     )
     kds_last_attempt_at = Column(DateTime(timezone=True), nullable=True)
     kds_last_error = Column(String, nullable=True)
+
+    is_discount_applied = Column(Boolean, default=False, server_default="false", nullable=False)
+    discount_id = Column(BigInteger, nullable=True)
+    discount_amount = Column(Numeric(10, 2), nullable=True)
+    discount_code = Column(String(100), nullable=True)
+    discount_type = Column(String(50), nullable=True)
+    discount_value = Column(Numeric(10, 2), nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

@@ -9,6 +9,7 @@ class Base(DeclarativeBase):
 from app.db.models.order import Order, OrderItem  # noqa: F401
 from app.db.models.menu import Menu # noqa
 from app.db.models.cash_pin import CashPin # noqa
+from app.db.models.discount import Discount, DiscountUsage # noqa
 from app.db.models.store import (  # noqa
     Store,
     StorePetpoojaCredentials,

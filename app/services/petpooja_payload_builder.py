@@ -125,7 +125,7 @@ class PetpoojaPayloadBuilder:
                             "no_of_persons": "0",
 
                             # Totals
-                            "discount_total": "0",
+                            "discount_total": str(self.order.discount_amount) if self.order.is_discount_applied else "0",
                             "tax_total": str(tax_total_all),
                             "discount_type": "F",
                             "total": str(self.order.total_amount_include_tax),
@@ -146,7 +146,13 @@ class PetpoojaPayloadBuilder:
                         "details": final_global_taxes
                     },
                     "Discount": {
-                        "details": []  # TODO: Add discount support if needed
+                        "details": [
+                            {
+                                "id": str(self.order.discount_id),
+                                "name": self.order.discount_code or "Discount",
+                                "amount": str(self.order.discount_amount),
+                            }
+                        ] if self.order.is_discount_applied else []
                     }
                 }
             }

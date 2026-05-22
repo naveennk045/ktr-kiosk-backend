@@ -33,6 +33,7 @@ class OrderCreateRequest(BaseModel):
     # non-zero values they must match server totals within tolerance.
     takeaway_charges_without_tax: float = 0
     takeaway_charges_with_tax: float = 0
+    discount_id: Optional[int] = None
 
 class OrderCreateResponse(BaseModel):
     order_id: str

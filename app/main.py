@@ -10,7 +10,7 @@ import redis.asyncio as redis
 
 from app.db.session import engine, Base, SessionLocal
 from app.db.bootstrap import ensure_default_store
-from .routers import catalog, order, admin, petpooja, itemdetails
+from .routers import catalog, order, admin, petpooja, itemdetails, discount
 from .routers.payment import payment
 from app.core.config import settings
 from app.dashboard import analytics_router, orders_read_router
@@ -25,22 +25,59 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
+import asyncio
+
+async def deactivate_expired_discounts_job():
+    from datetime import datetime, timezone
+    from sqlalchemy import update
+    from app.db.models.discount import Discount
+    
+    while True:
+        try:
+            logger.info("Running background job: deactivating expired discounts...")
+            async with SessionLocal() as db:
+                now = datetime.now(timezone.utc)
+                stmt = (
+                    update(Discount)
+                    .where(Discount.end_date < now, Discount.is_active == True)
+                    .values(is_active=False)
+                )
+                result = await db.execute(stmt)
+                await db.commit()
+                logger.info(f"Background job completed. Deactivated {result.rowcount} expired discounts.")
+        except Exception as e:
+            logger.error(f"Error in background job deactivate_expired_discounts_job: {e}", exc_info=True)
+        
+        # Run every hour
+        await asyncio.sleep(3600)
+
 # Lifespan events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 FastAPI application starting up...")
-
+ 
     app.state.http_client = httpx.AsyncClient()
     logger.info("HTTP client initialized successfully.")
-
-    # Create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("PostgreSQL tables ensured.")
-
+ 
+    # Create tables and add missing columns to orders dynamically
+    from sqlalchemy import text
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_discount_applied BOOLEAN DEFAULT FALSE;"))
+            await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_id BIGINT;"))
+            await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2);"))
+            await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_code VARCHAR(100);"))
+            await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_type VARCHAR(50);"))
+            await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_value DECIMAL(10,2);"))
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(text("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS store_id INT REFERENCES stores(id) ON DELETE CASCADE;"))
+        logger.info("PostgreSQL tables ensured and updated with discount columns.")
+    except Exception as e:
+        logger.error(f"Failed to apply database alterations on startup: {e}", exc_info=True)
+ 
     async with SessionLocal() as session:
         await ensure_default_store(session)
-
+ 
     # Redis setup...
     try:
         app.state.redis_client = redis.from_url(
@@ -55,13 +92,27 @@ async def lifespan(app: FastAPI):
         logger.error(f"Error connecting to Redis: {e}")
         app.state.redis_client = None
 
+    # Start the background job for expired discounts
+    app.state.discount_cleanup_task = asyncio.create_task(deactivate_expired_discounts_job())
+    logger.info("Discount cleanup background job registered.")
+ 
     logger.info("FastAPI startup complete.")
     yield
-
+ 
     await app.state.http_client.aclose()
     if app.state.redis_client:
         await app.state.redis_client.close()
         logger.info("Redis connection closed.")
+        
+    # Cancel background task on shutdown
+    if hasattr(app.state, "discount_cleanup_task"):
+        app.state.discount_cleanup_task.cancel()
+        try:
+            await app.state.discount_cleanup_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Discount cleanup background job cancelled.")
+        
     logger.info("Resources cleaned up. Application shutting down.")
 
 
@@ -184,3 +235,4 @@ app.include_router(petpooja.router, prefix="/petpooja", tags=["petpooja"])
 app.include_router(kds_router, prefix="/kds", tags=["kds"])
 app.include_router(tms_router, prefix="/tms", tags=["tms"])
 app.include_router(itemdetails.router, prefix="/itemdetails", tags=["itemdetails"])
+app.include_router(discount.router)

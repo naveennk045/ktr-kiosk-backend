@@ -155,6 +155,44 @@ class OrderService:
         backend_total_exc += tw_exc
         backend_total_inc += tw_inc
 
+        # Resolve discount if discount_id is supplied
+        discount_applied = False
+        discount_id = None
+        discount_amount = 0.0
+        discount_code = None
+        discount_type = None
+        discount_value = None
+
+        if request.discount_id:
+            from app.services.discount_service import DiscountService
+            ds = DiscountService(self.db)
+            discount_row = await ds.get_discount(request.discount_id)
+            if discount_row:
+                # Validate discount for this order
+                val_res = await ds.validate_discount(
+                    application_type=discount_row.application_type,
+                    code=discount_row.code,
+                    store_id=self.store.id,
+                    cart_amount=backend_total_inc
+                )
+                if val_res.get("valid"):
+                    discount_applied = True
+                    discount_id = discount_row.id
+                    discount_amount = val_res.get("discount_amount", 0.0)
+                    discount_code = discount_row.code
+                    discount_type = discount_row.discount_type
+                    discount_value = val_res.get("discount_value", 0.0)
+                else:
+                    raise ValueError(f"Discount validation failed: {val_res.get('message')}")
+            else:
+                raise ValueError(f"Discount with id {request.discount_id} not found.")
+
+        # Subtract discount amount from backend_total_inc and backend_total_exc
+        # Cap subtraction at 0
+        if discount_applied and discount_amount > 0:
+            backend_total_inc = max(0.0, backend_total_inc - discount_amount)
+            backend_total_exc = max(0.0, backend_total_exc - discount_amount)
+
         # 3. Generate IDs
         full_uuid = str(uuid.uuid4()).upper()
         order_id = f"KTR-{full_uuid[0:8]}{full_uuid[10:12]}"
@@ -175,6 +213,12 @@ class OrderService:
             kot_code=None,
             payment_status=PaymentStatus.PENDING,
             kds_status=KdsStatus.NOT_POSTED,
+            is_discount_applied=discount_applied,
+            discount_id=discount_id,
+            discount_amount=discount_amount,
+            discount_code=discount_code,
+            discount_type=discount_type,
+            discount_value=discount_value,
         )
 
         self.db.add(new_order)

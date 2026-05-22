@@ -126,3 +126,10 @@ async def get_payment_service(
     from app.services.payment_service import PaymentService as PaymentServiceCls
 
     return PaymentServiceCls(db, http_client, redis_client)
+
+
+async def get_discount_service(
+    db: AsyncSession = Depends(get_db),
+) -> DiscountService:
+    from app.services.discount_service import DiscountService
+    return DiscountService(db)

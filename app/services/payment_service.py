@@ -84,6 +84,19 @@ class PaymentService:
         await self.db.commit()
         await self.db.refresh(order)
 
+        # Record discount usage if a discount was applied
+        if order.is_discount_applied and order.discount_id:
+            try:
+                from app.services.discount_service import DiscountService
+                ds = DiscountService(self.db)
+                await ds.record_discount_usage(
+                    discount_id=order.discount_id,
+                    order_id=order.id,
+                    discount_amount=float(order.discount_amount or 0.0)
+                )
+            except Exception as e:
+                logger.error(f"Failed to record discount usage for order {order.order_id}: {e}", exc_info=True)
+
     async def _phonepe_for_order(self, order: Order) -> StorePhonePeCredentials:
         row = await get_phonepe_row_cached(self.redis_client, self.db, order.store_id)
         if not row:
