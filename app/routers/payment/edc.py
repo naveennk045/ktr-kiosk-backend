@@ -13,7 +13,8 @@ async def initiate_edc(
     order = await service.initiate_edc(
         request.order_id,
         request.amount_paise,
-        request.terminal_id
+        request.terminal_id,
+        request.payment_method
     )
 
     provider_msg = "Request sent to Pine Labs Terminal"

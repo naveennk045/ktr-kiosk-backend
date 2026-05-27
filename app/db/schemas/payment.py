@@ -1,7 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from app.db.models.order import PaymentStatus, KdsStatus
+from app.db.models.order import PaymentStatus, KdsStatus, PaymentMethod
 
 
 class QRInitiateRequest(BaseModel):
@@ -23,6 +23,7 @@ class EDCInitiateRequest(BaseModel):
     order_id: str = Field(..., min_length=1)
     amount_paise: int = Field(..., ge=1)
     terminal_id: str = Field(..., min_length=1)
+    payment_method: PaymentMethod | None = Field(default=PaymentMethod.CARD)
 
 
 class EDCInitiateResponse(BaseModel):

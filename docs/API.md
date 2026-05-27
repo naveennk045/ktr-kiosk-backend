@@ -267,7 +267,7 @@ Pass `?sku=10550601` to drill into a single item's daily trend.
 
 | Method | Path | Body | Description |
 |--------|------|------|-------------|
-| `POST` | `/payments/edc/init` | `order_id`, `amount_paise`, `terminal_id` (**required**) | Push amount to Pine Labs terminal (kiosk `terminal_id` = PineLabs Client ID). |
+| `POST` | `/payments/edc/init` | `order_id`, `amount_paise`, `terminal_id` (**required**), `payment_method` (optional) | Push amount to Pine Labs terminal (kiosk `terminal_id` = PineLabs Client ID). `payment_method` defaults to `CARD` but accepts `ZOMATO_DISTRICT`. |
 | `GET` | `/payments/edc/status/{order_id}` | — | Poll card payment status; includes provider raw payload. |
 
 Response `provider` message is driven by Pine Labs (`EDCInitiateResponse` uses provider label **Pine Labs EDC** in code).

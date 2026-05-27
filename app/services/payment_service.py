@@ -227,7 +227,7 @@ class PaymentService:
             raise HTTPException(status_code=502, detail="Payment Gateway Error")
 
     # --- EDC LOGIC (Pine Labs) ---
-    async def initiate_edc(self, order_id: str, amount_paise: int, terminal_id: str):
+    async def initiate_edc(self, order_id: str, amount_paise: int, terminal_id: str, payment_method: PaymentMethod = PaymentMethod.CARD):
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
@@ -269,10 +269,14 @@ class PaymentService:
         except ValueError:
             merchant_id = pl.merchant_id
 
+        allowed_payment_mode = "1"
+        if payment_method == PaymentMethod.ZOMATO_DISTRICT:
+            allowed_payment_mode = "42"
+
         request_payload = {
             "TransactionNumber": order_id,
             "SequenceNumber": 1,
-            "AllowedPaymentMode": "1",
+            "AllowedPaymentMode": allowed_payment_mode,
             "ClientID": terminal_id,
             "Amount": str(amount_paise),
             "UserID": pl.user_id,
@@ -304,7 +308,7 @@ class PaymentService:
             order.terminal_id = terminal_id
             order.provider_resp = payload
             order.provider_reference_id = str(plutus_ref_id) if plutus_ref_id else None
-            order.payment_method = PaymentMethod.CARD
+            order.payment_method = payment_method
             order.payment_status = PaymentStatus.PENDING
             order.provider_txn_id = order_id
 
@@ -394,7 +398,7 @@ class PaymentService:
             await osvc.sync_order_to_kds(order)
             return order
 
-        if order.payment_method == PaymentMethod.CARD:
+        if order.payment_method in (PaymentMethod.CARD, PaymentMethod.ZOMATO_DISTRICT):
             return await self._check_pinelabs_status(order)
         return await self._check_phonepe_status(order)
 

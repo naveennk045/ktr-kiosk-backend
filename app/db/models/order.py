@@ -30,6 +30,7 @@ class PaymentMethod(str, enum.Enum):
     CARD = "CARD"
     MANUAL = "MANUAL"
     CASH = "CASH"
+    ZOMATO_DISTRICT = "ZOMATO_DISTRICT"
 
 class KdsStatus(str, enum.Enum):
     NOT_POSTED = "NOT_POSTED"
