@@ -110,3 +110,33 @@ class ItemSummaryResponse(BaseModel):
     total_items_sold: int  # sum of all quantities
     unique_items: int
     items: List[ItemSummaryEntry]
+
+
+# ─── Category-wise Analytics Schemas ──────────────────────────────────────────
+
+class CategoryItemEntry(BaseModel):
+    """A single item's aggregated sales within a category."""
+    sku: str
+    item_name: str
+    total_quantity: int
+    total_revenue: float
+    order_count: int
+
+
+class CategorySummaryEntry(BaseModel):
+    """Aggregated sales statistics for a category, including items sold under it."""
+    category_id: str
+    category_name: str
+    total_quantity: int
+    total_revenue: float
+    order_count: int
+    items: List[CategoryItemEntry]
+
+
+class CategorySummaryResponse(BaseModel):
+    """All categories with their aggregated statistics for the period."""
+    period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
+    categories: List[CategorySummaryEntry]
+

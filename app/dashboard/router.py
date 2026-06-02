@@ -14,6 +14,7 @@ from app.dashboard.schemas import (
     ItemTopResponse,
     ItemDailyResponse,
     ItemSummaryResponse,
+    CategorySummaryResponse,
 )
 from app.dashboard.service import DashboardService
 
@@ -183,3 +184,29 @@ async def get_item_summary(
     Also returns aggregate `total_items_sold` and `unique_items` at the top level.
     """
     return await service.get_item_summary(period, from_date, to_date)
+
+
+@analytics_router.get("/categories/summary", response_model=CategorySummaryResponse)
+async def get_category_summary(
+    period: DashboardPeriod = Query(
+        "today",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    service: DashboardService = Depends(get_dashboard_service),
+):
+    """
+    **Category-wise summary** for the period.
+
+    Returns all categories with their total quantities, revenues, order counts,
+    and a breakdown of individual items sold under each category.
+    """
+    return await service.get_category_summary(period, from_date, to_date)
+

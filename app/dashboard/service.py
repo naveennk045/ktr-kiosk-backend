@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Optional
 
+import redis.asyncio as redis
 from sqlalchemy import select, func, desc, asc, case, cast, Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -20,6 +21,9 @@ from app.dashboard.schemas import (
     ItemDailyResponse,
     ItemSummaryEntry,
     ItemSummaryResponse,
+    CategoryItemEntry,
+    CategorySummaryEntry,
+    CategorySummaryResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,9 +66,10 @@ def _time_filters_for_period(
 
 
 class DashboardService:
-    def __init__(self, db: AsyncSession, store_id: int):
+    def __init__(self, db: AsyncSession, store_id: int, redis_client: redis.Redis):
         self.db = db
         self.store_id = store_id
+        self.redis = redis_client
 
     async def get_analytics_summary(
         self,
@@ -439,3 +444,120 @@ class DashboardService:
             unique_items=len(items),
             items=items,
         )
+
+    async def get_category_summary(
+        self,
+        period: DashboardPeriod,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+    ) -> CategorySummaryResponse:
+        from app.services.catalog_service import CatalogService
+        
+        # 1. Get time filters
+        time_filters = _time_filters_for_period(period, from_date, to_date)
+        
+        # 2. Query raw order item sales
+        stmt = (
+            select(
+                OrderItem.item_skuid.label("sku"),
+                OrderItem.item_name.label("item_name"),
+                OrderItem.quantity.label("quantity"),
+                OrderItem.price.label("price"),
+                Order.id.label("order_id"),
+            )
+            .join(Order, Order.id == OrderItem.order_id)
+            .where(
+                Order.store_id == self.store_id,
+                Order.payment_status == PaymentStatus.COMPLETED,
+                *time_filters,
+            )
+        )
+        rows = (await self.db.execute(stmt)).all()
+        
+        # 3. Fetch Catalog JSON for category mapping
+        catalog_service = CatalogService(self.redis, None, self.store_id)
+        try:
+            catalog = await catalog_service.get_catalog(channel="default", db=self.db)
+        except Exception as e:
+            logger.error(f"Failed to fetch catalog: {e}", exc_info=True)
+            catalog = {"categories": [], "items": []}
+            
+        # 4. Build mapping tables
+        sku_to_cat = {item["skuCode"]: item["categoryId"] for item in catalog.get("items", []) if "skuCode" in item and "categoryId" in item}
+        cat_to_name = {cat["categoryId"]: cat["name"] for cat in catalog.get("categories", []) if "categoryId" in cat and "name" in cat}
+        
+        # 5. In-Memory Aggregation
+        # { category_id: { "name": ..., "order_ids": set(), "items": { sku: { ... } } } }
+        agg = {}
+        for r in rows:
+            sku = r.sku
+            item_name = r.item_name
+            qty = int(r.quantity or 0)
+            rev = float((r.price or 0) * qty)
+            order_id = r.order_id
+            
+            cat_id = sku_to_cat.get(sku, "uncategorized")
+            cat_name = cat_to_name.get(cat_id, "Uncategorized")
+            
+            if cat_id not in agg:
+                agg[cat_id] = {
+                    "name": cat_name,
+                    "order_ids": set(),
+                    "items": {}
+                }
+            
+            agg[cat_id]["order_ids"].add(order_id)
+            
+            if sku not in agg[cat_id]["items"]:
+                agg[cat_id]["items"][sku] = {
+                    "sku": sku,
+                    "item_name": item_name,
+                    "total_quantity": 0,
+                    "total_revenue": 0.0,
+                    "order_ids": set()
+                }
+            
+            agg[cat_id]["items"][sku]["total_quantity"] += qty
+            agg[cat_id]["items"][sku]["total_revenue"] += rev
+            agg[cat_id]["items"][sku]["order_ids"].add(order_id)
+            
+        # 6. Build response objects and sort
+        categories_response = []
+        for cat_id, cat_data in agg.items():
+            items_list = []
+            cat_qty = 0
+            cat_rev = 0.0
+            
+            for sku, item_data in cat_data["items"].items():
+                cat_qty += item_data["total_quantity"]
+                cat_rev += item_data["total_revenue"]
+                items_list.append(CategoryItemEntry(
+                    sku=sku,
+                    item_name=item_data["item_name"],
+                    total_quantity=item_data["total_quantity"],
+                    total_revenue=round(item_data["total_revenue"], 2),
+                    order_count=len(item_data["order_ids"])
+                ))
+            
+            # Sort items by quantity sold descending
+            items_list.sort(key=lambda x: x.total_quantity, reverse=True)
+            
+            categories_response.append(CategorySummaryEntry(
+                category_id=cat_id,
+                category_name=cat_data["name"],
+                total_quantity=cat_qty,
+                total_revenue=round(cat_rev, 2),
+                order_count=len(cat_data["order_ids"]),
+                items=items_list
+            ))
+            
+        # Sort categories by total quantity sold descending
+        categories_response.sort(key=lambda x: x.total_quantity, reverse=True)
+        
+        return CategorySummaryResponse(
+            period=period,
+            from_date=from_date,
+            to_date=to_date,
+            categories=categories_response
+        )
+
