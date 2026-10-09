@@ -80,12 +80,17 @@ async def lifespan(app: FastAPI):
  
     # Redis setup...
     try:
-        app.state.redis_client = redis.from_url(
+        # Explicit pool: redis-py 8.x lowered the implicit default cap to 100 and raises
+        # MaxConnectionsError immediately when exhausted. A blocking pool waits briefly instead.
+        redis_pool = redis.BlockingConnectionPool.from_url(
             settings.REDIS_HOST,
+            max_connections=settings.REDIS_MAX_CONNECTIONS,
+            timeout=settings.REDIS_POOL_TIMEOUT,
             decode_responses=True,
             health_check_interval=30,
             socket_keepalive=True,
         )
+        app.state.redis_client = redis.Redis.from_pool(redis_pool)
         await app.state.redis_client.ping()
         logger.info("Successfully connected to Redis.")
     except Exception as e:
