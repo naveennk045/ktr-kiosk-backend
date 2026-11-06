@@ -1,11 +1,8 @@
 from collections import defaultdict
-from collections import deque
 import asyncio
 from datetime import date, datetime, timedelta
 import json
 import os
-from pathlib import Path
-import re
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 
@@ -35,53 +32,10 @@ from app.db.models.store import (
 )
 from app.dashboard.schemas import DashboardPeriod
 from app.services.store_cache import invalidate_store_cache
+from app.core.log_reader import LOG_FILE_PATH, LogFilters, log_files, parse_line, read_entries
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-LOG_FILE_PATH = Path("app.log")
-LOG_LINE_PATTERN = re.compile(
-    r"^(?P<timestamp>[^-]+?)\s+-\s+\[(?P<level>[A-Z]+)\]\s+-\s+(?P<logger>[^-]+?)\s+-\s+(?P<message>.*)$"
-)
 IST = ZoneInfo("Asia/Kolkata")
-
-
-def _tail_lines(path: Path, max_lines: int) -> list[str]:
-    """Return last N lines from a UTF-8 text file."""
-    with path.open("r", encoding="utf-8", errors="replace") as f:
-        return [line.rstrip("\n") for line in deque(f, maxlen=max_lines)]
-
-
-def _parse_log_line(line: str) -> dict:
-    """
-    Parse standard app log format into frontend-friendly fields.
-    Now supports JSON structured logging as the primary format,
-    falling back to legacy text matching for older lines.
-    """
-    try:
-        data = json.loads(line)
-        # Ensure 'raw' is set for frontend consistency
-        data["raw"] = line
-        return data
-    except Exception:
-        pass
-
-    # Fallback for old text logs
-    match = LOG_LINE_PATTERN.match(line)
-    if not match:
-        return {
-            "timestamp": None,
-            "level": "UNKNOWN",
-            "logger": None,
-            "message": line,
-            "raw": line,
-        }
-    data = match.groupdict()
-    return {
-        "timestamp": data["timestamp"].strip(),
-        "level": data["level"].strip(),
-        "logger": data["logger"].strip(),
-        "message": data["message"],
-        "raw": line,
-    }
 
 
 class KioskTerminalItem(BaseModel):
@@ -1059,65 +1013,109 @@ async def invalidate_store_caches(
     return {"status": "ok", "store_id": store.id}
 
 
+def _log_filters(
+    contains: str | None,
+    level: str | None,
+    request_id: str | None,
+    order_id: str | None,
+    event: str | None,
+    logger_name: str | None,
+) -> LogFilters:
+    clean = lambda v: (v or "").strip() or None  # noqa: E731
+    return LogFilters(
+        contains=clean(contains),
+        min_level=clean(level),
+        request_id=clean(request_id),
+        order_id=clean(order_id),
+        event=clean(event),
+        logger=clean(logger_name),
+    )
+
+
 @router.get("/logs")
 async def get_app_logs(
-    lines: int = Query(200, ge=1, le=2000),
-    contains: str | None = Query(None, description="Optional case-insensitive line filter"),
+    lines: int = Query(300, ge=1, le=5000, description="Max entries to return (newest matching)"),
+    contains: str | None = Query(None, description="Case-insensitive text match on the whole entry"),
+    level: str | None = Query(None, description="Minimum level: DEBUG, INFO, WARNING, ERROR"),
+    request_id: str | None = Query(None, description="Only this request"),
+    order_id: str | None = Query(None, description="Only this order (its full journey across requests)"),
+    event: str | None = Query(None, description="Event name or prefix, e.g. payment. or order.created"),
+    logger_name: str | None = Query(None, alias="logger", description="Logger name prefix, e.g. app.services"),
 ):
     """
-    Return recent lines from `app.log` for frontend diagnostics.
+    Newest matching entries from `app.log` and its rotated backups, oldest → newest.
+    Filters run on the server across the whole history (up to MAX_SCAN_LINES lines scanned).
     """
-    if not LOG_FILE_PATH.exists():
+    if not log_files():
         raise HTTPException(status_code=404, detail="Log file not found")
-
-    rows = await asyncio.to_thread(_tail_lines, LOG_FILE_PATH, lines)
-    if contains:
-        needle = contains.lower()
-        rows = [line for line in rows if needle in line.lower()]
-
-    return {
-        "path": str(LOG_FILE_PATH.resolve()),
-        "count": len(rows),
-        "entries": [_parse_log_line(line) for line in rows],
-    }
+    filters = _log_filters(contains, level, request_id, order_id, event, logger_name)
+    return await asyncio.to_thread(read_entries, lines, filters)
 
 
 @router.get("/logs/stream")
 async def stream_app_logs(
     request: Request,
-    contains: str | None = Query(None, description="Optional case-insensitive line filter"),
-    initial_lines: int = Query(50, ge=0, le=500),
+    contains: str | None = Query(None),
+    level: str | None = Query(None),
+    request_id: str | None = Query(None),
+    order_id: str | None = Query(None),
+    event: str | None = Query(None),
+    logger_name: str | None = Query(None, alias="logger"),
+    initial_lines: int = Query(50, ge=0, le=1000),
 ):
     """
-    SSE stream of `app.log` so frontend can watch logs in real-time.
+    SSE: the last `initial_lines` matching entries, then every new matching entry as it is
+    written. Follows log rotation (reopens `app.log` when it is rolled over).
     """
     if not LOG_FILE_PATH.exists():
         raise HTTPException(status_code=404, detail="Log file not found")
+    filters = _log_filters(contains, level, request_id, order_id, event, logger_name)
+
+    def sse(entry: dict) -> str:
+        return f"data: {json.dumps({'type': 'log', 'entry': entry}, default=str)}\n\n"
 
     async def event_gen():
-        needle = contains.lower() if contains else None
         if initial_lines > 0:
-            for line in await asyncio.to_thread(_tail_lines, LOG_FILE_PATH, initial_lines):
-                if needle and needle not in line.lower():
-                    continue
-                yield f"data: {json.dumps({'type': 'log', 'entry': _parse_log_line(line)})}\n\n"
+            snapshot = await asyncio.to_thread(read_entries, initial_lines, filters)
+            for entry in snapshot["entries"]:
+                yield sse(entry)
 
-        with LOG_FILE_PATH.open("r", encoding="utf-8", errors="replace") as fp:
-            fp.seek(0, os.SEEK_END)
+        fp = LOG_FILE_PATH.open("r", encoding="utf-8", errors="replace")
+        fp.seek(0, os.SEEK_END)
+        inode = os.fstat(fp.fileno()).st_ino
+        idle = 0
+        try:
             while True:
                 if await request.is_disconnected():
                     break
-
                 line = await asyncio.to_thread(fp.readline)
                 if not line:
-                    yield ": ping\n\n"
+                    # Rotated (new inode) or truncated: start reading the new file from the top.
+                    try:
+                        st = os.stat(LOG_FILE_PATH)
+                        if st.st_ino != inode or st.st_size < fp.tell():
+                            fp.close()
+                            fp = LOG_FILE_PATH.open("r", encoding="utf-8", errors="replace")
+                            inode = os.fstat(fp.fileno()).st_ino
+                            continue
+                    except FileNotFoundError:
+                        pass
+                    idle += 1
+                    if idle % 15 == 0:
+                        yield ": ping\n\n"
                     await asyncio.sleep(1.0)
                     continue
-
-                value = line.rstrip("\n")
-                if needle and needle not in value.lower():
-                    continue
-                yield f"data: {json.dumps({'type': 'log', 'entry': _parse_log_line(value)})}\n\n"
+                idle = 0
+                entry = parse_line(line)
+                if entry is None:
+                    if line.strip():
+                        entry = {"level": "INFO", "message": line.rstrip(), "raw": line.rstrip(), "continuation": True}
+                    else:
+                        continue
+                if filters.matches(entry):
+                    yield sse(entry)
+        finally:
+            fp.close()
 
     return StreamingResponse(
         event_gen(),

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -19,7 +21,10 @@ from app.db.models.order import (
 )
 from app.kds.constants import LIVE_ORDERS_WINDOW_MINUTES
 from app.kds.notify import emit_kitchen_event, line_ready_speech
+from app.core.logger import bind_log_context, log_event
 from app.tms.stats import load_day_stats, served_milestones
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_BOARD_ROWS = 20
 MAX_BOARD_ROWS_CAP = 100
@@ -153,6 +158,8 @@ class KdsBoardService:
             raise HTTPException(status_code=404, detail="Order line not found")
 
         order = line.order
+        bind_log_context(order_id=order.order_id)
+        previous_status = line.order_status
         if order.payment_status != PaymentStatus.COMPLETED:
             raise HTTPException(
                 status_code=400,
@@ -219,6 +226,19 @@ class KdsBoardService:
             "items_need_be_collected": line.items_need_be_collected,
             "order_status": line.order_status.value,
         }
+        log_event(
+            logger,
+            "kds.line_status",
+            f"{order.kot_code} · {line.item_name}: {previous_status.value} → {new_status.value} ×{move_qty}",
+            kot_code=order.kot_code,
+            line_id=line.id,
+            item=line.item_name,
+            quantity=move_qty,
+            requested_status=new_status.value,
+            line_status=line.order_status.value,
+            items_need_be_ready=line.items_need_be_ready,
+            items_need_be_collected=line.items_need_be_collected,
+        )
         await emit_kitchen_event(self.redis, "ITEM_STATUS_CHANGED", payload)
 
         if new_status == OrderItemStatus.READY:

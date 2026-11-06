@@ -23,6 +23,7 @@ from app.services.catalog_service import CatalogService
 from app.services.petpooja_payload_builder import PetpoojaPayloadBuilder
 from app.utils.petpooja import PetpoojaClient, PetpoojaCredentials
 from app.utils.takeaway_charges import compute_takeaway_charges
+from app.core.logger import bind_log_context, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +248,28 @@ class OrderService:
 
         await self.db.commit()
         await self.db.refresh(new_order)
+        bind_log_context(order_id=order_id, store_id=self.store.id)
+        log_event(
+            logger,
+            "order.created",
+            f"Order {order_id} created: {len(items_for_db)} lines, ₹{new_order.total_amount_include_tax}",
+            order_type=request.order_type.value,
+            channel=request.channel,
+            lines=[
+                {
+                    "item": spec.get("item_name"),
+                    "qty": spec["quantity"],
+                    **({"order_type": spec["order_type"].value} if spec.get("order_type") else {}),
+                    **({"options": spec["options"]} if spec.get("options") else {}),
+                    **({"note": spec["note"]} if spec.get("note") else {}),
+                }
+                for spec in items_for_db
+            ],
+            total_include_tax=float(new_order.total_amount_include_tax),
+            takeaway_charges=tw_inc,
+            discount_code=discount_code,
+            discount_amount=discount_amount or None,
+        )
         return new_order
 
     async def _generate_next_kot(self) -> tuple[date, int, str]:
@@ -275,7 +298,8 @@ class OrderService:
             order.kot_code = kot_code
             await self.db.commit()
             await self.db.refresh(order)
-            logger.info("Assigned KOT | order_id=%s | kot_code=%s", order.order_id, kot_code)
+            log_event(logger, "order.kot_assigned", f"Token {kot_code} assigned to {order.order_id}",
+                      order_id=order.order_id, kot_code=kot_code)
         return order
 
     # --- 2. KDS Posting Logic ---
@@ -293,25 +317,27 @@ class OrderService:
             logger.error("sync_order_to_kds: order id=%s not found", getattr(order, "id", None))
             return False, None
         order = row
-
-        logger.info(
-            "KDS sync started | order_id=%s | store_id=%s",
-            order.order_id,
-            order.store_id,
-        )
+        bind_log_context(order_id=order.order_id, store_id=order.store_id)
 
         if order.kds_status == KdsStatus.POSTED:
             return True, order.kds_invoice_id
 
+        log_event(logger, "petpooja.sync_started", f"Sending {order.order_id} to Petpooja",
+                  previous_kds_status=order.kds_status.value if order.kds_status else None)
+
         try:
             catalog = await self.catalog.get_catalog(order.channel, self.db)
         except Exception as e:
+            logger.error("Petpooja sync: catalog unavailable for %s", order.order_id, exc_info=True,
+                         extra={"extra_data": {"event": "petpooja.sync_failed", "stage": "catalog"}})
             await self._update_kds_status(order, KdsStatus.FAILED, f"Catalog error: {e}")
             return False, None
 
         try:
             payload = self._construct_petpooja_payload(order, catalog)
         except Exception as e:
+            logger.error("Petpooja sync: could not build payload for %s", order.order_id, exc_info=True,
+                         extra={"extra_data": {"event": "petpooja.sync_failed", "stage": "payload"}})
             await self._update_kds_status(order, KdsStatus.FAILED, f"Payload build error: {e}")
             return False, None
 
@@ -330,25 +356,20 @@ class OrderService:
                 # Petpooja typically returns the order ID in the response
                 server_order_id = response.get("orderID") or response.get("order_id") or order.order_id
                 await self._update_kds_status(order, KdsStatus.POSTED, None, server_order_id)
-                logger.info(
-                    "KDS sync success | order_id=%s | petpooja_order_id=%s",
-                    order.order_id,
-                    server_order_id,
-                )
+                log_event(logger, "petpooja.sync_success", f"{order.order_id} accepted by Petpooja",
+                          petpooja_order_id=server_order_id)
                 return True, server_order_id
             else:
                 error_msg = message or "Unknown error"
                 await self._update_kds_status(order, KdsStatus.FAILED, error_msg)
-                logger.error(
-                    "KDS sync failed | order_id=%s | error=%s",
-                    order.order_id,
-                    error_msg,
-                )
+                log_event(logger, "petpooja.sync_failed", f"Petpooja rejected {order.order_id}: {error_msg}",
+                          level=logging.ERROR, stage="save_order", petpooja_response=response)
                 return False, None
 
         except Exception as e:
             await self._update_kds_status(order, KdsStatus.FAILED, str(e))
-            logger.error("KDS sync exception | order_id=%s | error=%s", order.order_id, e)
+            logger.error("Petpooja sync error for %s: %s", order.order_id, e, exc_info=True,
+                         extra={"extra_data": {"event": "petpooja.sync_failed", "stage": "request"}})
             return False, None
 
     def _construct_petpooja_payload(self, order: Order, catalog: Dict) -> Dict:
