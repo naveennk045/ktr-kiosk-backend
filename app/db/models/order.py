@@ -207,6 +207,9 @@ class OrderItem(Base):
     )
     variation_id = Column(String(64), nullable=True)
     addon_items = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    # Kitchen timestamps for the TMS board: first move to PREPARING, and when the last portion became ready.
+    preparing_at = Column(DateTime(timezone=True), nullable=True)
+    ready_at = Column(DateTime(timezone=True), nullable=True)
 
     order = relationship("Order", back_populates="line_items")
 

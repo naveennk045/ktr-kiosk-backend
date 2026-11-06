@@ -19,6 +19,7 @@ from app.core.dependencies import (
 from app.db.models.store import Store
 from app.db.session import SessionLocal
 from app.kds.notify import KDS_NOTIFY_CHANNEL
+from app.tms.menu_meta import menu_meta_payload
 from app.tms.schemas import TmsHealthResponse
 from app.tms.service import TmsTokenService
 
@@ -44,6 +45,12 @@ async def tms_health(service: TmsTokenService = Depends(_tms_service)):
 async def tms_snapshot(service: TmsTokenService = Depends(_tms_service)):
     """SSR-friendly JSON; pair with ``GET /tms/stream`` for live updates."""
     return await service.get_snapshot()
+
+
+@router.get("/menu-meta")
+async def tms_menu_meta():
+    """Hard-coded item copy, categories, ticker, story reel and milestone groups (same for every store)."""
+    return menu_meta_payload()
 
 
 @router.get("/stream")
