@@ -277,7 +277,7 @@ Errors: `404` line not in this store · `400` order not paid, moving back to `NO
 | Called again | Staff re-announce (`TMS_ANNOUNCE`) | Toast "Calling token 51" + voice |
 | Completed | Token leaves the snapshot | Green "Completed in 7:24 · Kitchen time 6:56" for 9 s |
 | Milestone | `TMS_MILESTONE` | Full-screen flash: photo, count-up to "100th", "Filter Coffees Served Today", rays, confetti, voice |
-| Idle | No new token for 60 s | Full-screen story reel (12 slides) with "Ready now" tokens; closes on tap or new order |
+| Empty board | No tokens on the board for 15 s | Full-screen story reel (12 slides). Closes the moment a token appears; tapping shows the empty board and the reel returns after 15 s |
 
 ### Interaction
 
