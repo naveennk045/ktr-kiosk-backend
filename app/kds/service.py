@@ -19,6 +19,7 @@ from app.db.models.order import (
 )
 from app.kds.constants import LIVE_ORDERS_WINDOW_MINUTES
 from app.kds.notify import emit_kitchen_event, line_ready_speech
+from app.tms.stats import load_day_stats, served_milestones
 
 DEFAULT_BOARD_ROWS = 20
 MAX_BOARD_ROWS_CAP = 100
@@ -170,6 +171,10 @@ class KdsBoardService:
                 detail="Cannot move status backward to NOT_ACCEPTED",
             )
 
+        now = datetime.now(timezone.utc)
+        if new_status in (OrderItemStatus.PREPARING, OrderItemStatus.READY) and line.preparing_at is None:
+            line.preparing_at = now
+
         if new_status == OrderItemStatus.PREPARING:
             line.order_status = OrderItemStatus.PREPARING
         elif new_status == OrderItemStatus.READY:
@@ -183,6 +188,8 @@ class KdsBoardService:
                 )
             line.items_need_be_ready = int(line.items_need_be_ready) - move_qty
             line.items_need_be_collected = int(line.items_need_be_collected) + move_qty
+            if line.items_need_be_ready <= 0:
+                line.ready_at = now
             line.order_status = _derive_line_status(line, new_status)
         elif new_status == OrderItemStatus.COLLECTED:
             if move_qty > int(line.items_need_be_collected):
@@ -228,7 +235,26 @@ class KdsBoardService:
             {"reason": "line_status", "store_id": self.store_id},
         )
 
+        if new_status == OrderItemStatus.READY:
+            await self._emit_served_milestones(order, line.item_name, move_qty)
+
         return payload
+
+    async def _emit_served_milestones(self, order: Order, item_name: str | None, moved_qty: int) -> None:
+        """TMS celebration when today's served count for a dish or group crosses a step of 50."""
+        day = await load_day_stats(self.db, self.store_id, order.kot_date)
+        for hit in served_milestones(day.served, item_name, moved_qty):
+            await emit_kitchen_event(
+                self.redis,
+                "TMS_MILESTONE",
+                {
+                    "store_id": self.store_id,
+                    "order_id": order.order_id,
+                    "kot_code": order.kot_code,
+                    "token_number": str(order.kot_number) if order.kot_number is not None else order.kot_code,
+                    **hit,
+                },
+            )
 
     async def announce_line_item(self, line_id: int) -> dict[str, Any]:
         stmt = (

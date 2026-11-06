@@ -182,7 +182,7 @@ class CatalogService:
         # Invalidate this store's catalog caches (all channels)
         try:
             pattern = f"petpooja_catalog_data_{self.store_id}_*"
-            keys = await self.redis.keys(pattern)
+            keys = [k async for k in self.redis.scan_iter(match=pattern, count=500)]
             if keys:
                 await self.redis.delete(*keys)
                 logger.info(f"Cleared {len(keys)} catalog cache key(s) for store {self.store_id}.")

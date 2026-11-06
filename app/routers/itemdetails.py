@@ -82,7 +82,7 @@ async def update_item_details(
     # Wipe catalog cache
     try:
         pattern = f"petpooja_catalog_data_{store.id}_*"
-        keys = await redis_client.keys(pattern)
+        keys = [k async for k in redis_client.scan_iter(match=pattern, count=500)]
         if keys:
             await redis_client.delete(*keys)
             logger.info(f"Cleared {len(keys)} catalog cache key(s) for store {store.id}.")
