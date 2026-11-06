@@ -255,7 +255,8 @@ public/img/                 KTR photos and logo (keys referenced by menu-meta)
 1. On mount: `GET /tms/snapshot` and `GET /tms/menu-meta`; open `EventSource(/tms/stream?store_id=N)`.
 2. `SNAPSHOT` (first SSE message) or a debounced refetch after `BOARD_REFRESH` calls `applySnapshot`.
 3. `applySnapshot` diffs against the previous snapshot by `order_id`:
-   - new token → fresh animation, toast with a dish fact, "Just ordered" spotlight, closes the reel
+   - new token → fresh animation, toast with a dish fact, "Just ordered" spotlight (and the story reel
+     closes, since the board is no longer empty)
    - state change → `partial` toast, or `ready` toast + flip/confetti + 2-minute reminder
    - newly ready lines → green tick flash
    - token disappeared → "Completed" card for 9 s
@@ -273,7 +274,7 @@ public/img/                 KTR photos and logo (keys referenced by menu-meta)
 | `DONE_SHOW_MS` | 9 s | "Completed" card lifetime |
 | `SPOT_ROTATE_MS` / `SPOT_BUSY_MS` | 14 s / 25 s | Spotlight rotation / hold after "Just ordered" |
 | `MILESTONE_MS` | 7.5 s | Milestone flash duration |
-| `IDLE_REEL_MS` | 60 s | No new order → story reel |
+| `REEL_DELAY_MS` | 15 s | Board empty (no tokens, no "Completed" cards) this long → story reel; any token closes it |
 | `REMINDER_MS` | 2 min | Re-call an uncollected ready token once |
 | `PAGE_MS` | 8 s | Auto-page when cards overflow |
 
