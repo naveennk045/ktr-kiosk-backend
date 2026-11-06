@@ -4,7 +4,7 @@ import redis.asyncio as redis
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 
@@ -79,7 +79,7 @@ class PaymentService:
                 OrderItem.order_id == order.id,
                 OrderItem.order_status == OrderItemStatus.NOT_ACCEPTED,
             )
-            .values(order_status=OrderItemStatus.PREPARING)
+            .values(order_status=OrderItemStatus.PREPARING, preparing_at=func.now())
         )
         await self.db.commit()
         await self.db.refresh(order)

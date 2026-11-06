@@ -5,6 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+import json
+import logging
+
 import redis.asyncio as redis
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,10 +15,16 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models.order import Order, OrderItem, OrderItemStatus, PaymentStatus
 from app.kds.constants import LIVE_ORDERS_WINDOW_MINUTES
+from app.kds.notify import tms_snapshot_gen_key, tms_snapshot_key
 from app.tms.menu_meta import match_menu_item
 from app.tms.stats import DayStats, load_day_stats
 
+logger = logging.getLogger(__name__)
+
 TMS_TOKEN_LIMIT = 200
+# Every TV on a store reads the same snapshot, so it is built once per kitchen change and
+# shared through Redis. Events bump the store's generation; the TTL just expires old copies.
+SNAPSHOT_CACHE_TTL_SECONDS = 15
 
 
 def _token_number(order: Order) -> str:
@@ -105,6 +114,28 @@ class TmsTokenService:
         )
 
     async def get_snapshot(self) -> dict[str, Any]:
+        key: str | None = None
+        if self.redis is not None:
+            try:
+                gen = await self.redis.get(tms_snapshot_gen_key(self.store_id)) or "0"
+                key = tms_snapshot_key(self.store_id, gen)
+                raw = await self.redis.get(key)
+                if raw:
+                    snap = json.loads(raw)
+                    snap["server_time"] = datetime.now(timezone.utc).isoformat()
+                    return snap
+            except Exception as e:
+                logger.warning("TMS snapshot cache read failed: %s", e)
+
+        snap = await self._build_snapshot()
+        if self.redis is not None and key is not None:
+            try:
+                await self.redis.set(key, json.dumps(snap), ex=SNAPSHOT_CACHE_TTL_SECONDS)
+            except Exception as e:
+                logger.warning("TMS snapshot cache write failed: %s", e)
+        return snap
+
+    async def _build_snapshot(self) -> dict[str, Any]:
         stmt = (
             select(Order)
             .where(*self._visible_tokens_filter())

@@ -43,7 +43,7 @@ async def invalidate_store_cache(redis_client: redis.Redis, store_id: int) -> No
     """Delete all cached blobs for a store."""
     pattern = f"store:{store_id}:*"
     try:
-        keys = await redis_client.keys(pattern)
+        keys = [k async for k in redis_client.scan_iter(match=pattern, count=500)]
         if keys:
             await redis_client.delete(*keys)
             logger.info("Invalidated %s store cache key(s) for store_id=%s", len(keys), store_id)

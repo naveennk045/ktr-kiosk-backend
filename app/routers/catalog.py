@@ -61,7 +61,7 @@ async def get_cache_stats(
     """
     try:
         pattern = f"petpooja_catalog_data_{store.id}_*"
-        keys = await redis_client.keys(pattern)
+        keys = [k async for k in redis_client.scan_iter(match=pattern, count=500)]
         suffixes = [k.replace(f"petpooja_catalog_data_{store.id}_", "") for k in keys]
 
         return {
