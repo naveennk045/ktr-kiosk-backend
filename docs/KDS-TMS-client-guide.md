@@ -116,6 +116,7 @@ up to 200.
 | `items_need_be_collected` | int | Portions ready, waiting at the counter. |
 | `order_status` | `NOT_ACCEPTED` \| `PREPARING` \| `READY` \| `COLLECTED` | Derived line status. |
 | `preparing_at` / `ready_at` | timestamp \| null | Kitchen start; last portion ready. `null` for lines from before the migration. |
+| `order_type` | `DINEIN` \| `TAKEAWAY` | This line's effective type (mixed orders can have take-away lines in a dine-in token). |
 | `has_addons` | bool | Petpooja add-ons/customisations present ("Made your way" tag). |
 | `menu_id`, `category`, `image`, `short` | string \| null | Match against the hard-coded menu; all `null` if the item name isn't in it. |
 | `first_of_day` | bool | This token is today's first order of this dish. |
@@ -151,6 +152,7 @@ is always fresh, so clients can correct for TV clock drift.
 ```
 
 - `image` is a key; the board loads `/img/<key>.jpg` from its own static files. `null` → plaid placeholder.
+- `options` on categories and items: free-text kitchen options the kiosk offers ("Extra benne", "Less spicy").
 - Kitchen stages: Davangere and Bengaluru doses *On the tawa*, idlis *Steaming*, vadas *Frying*,
   rice and desserts *In the pot*, coffee *Brewing*, add-ons *Plating*.
 - To support a Petpooja name that doesn't match, add it to that dish's `aliases` in

@@ -118,6 +118,9 @@ class KdsBoardService:
                     "items_need_be_ready": li.items_need_be_ready,
                     "items_need_be_collected": li.items_need_be_collected,
                     "order_status": li.order_status.value,
+                    "order_type": order.line_order_type(li).value,
+                    "options": li.options or [],
+                    "note": li.note,
                 }
                 for li in lines
             ],

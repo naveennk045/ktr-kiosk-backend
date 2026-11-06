@@ -73,6 +73,9 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("ALTER TABLE discounts ADD COLUMN IF NOT EXISTS store_id INT REFERENCES stores(id) ON DELETE CASCADE;"))
             await conn.execute(text("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS preparing_at TIMESTAMPTZ;"))
             await conn.execute(text("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS ready_at TIMESTAMPTZ;"))
+            await conn.execute(text("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS order_type ordertype;"))
+            await conn.execute(text("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS options JSONB NOT NULL DEFAULT '[]'::jsonb;"))
+            await conn.execute(text("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS note VARCHAR(200);"))
         logger.info("PostgreSQL tables ensured and updated with discount columns.")
     except Exception as e:
         logger.error(f"Failed to apply database alterations on startup: {e}", exc_info=True)
