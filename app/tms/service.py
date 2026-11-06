@@ -67,6 +67,8 @@ def _serialize_line(li: OrderItem, order: Order, day: DayStats) -> dict[str, Any
         "items_need_be_ready": int(getattr(li, "items_need_be_ready", 0) or 0),
         "items_need_be_collected": int(getattr(li, "items_need_be_collected", 0) or 0),
         "order_status": li.order_status.value,
+        # Mixed orders: lines can be parcel inside a dine-in token (and vice versa).
+        "order_type": order.line_order_type(li).value,
         "preparing_at": _iso(getattr(li, "preparing_at", None)),
         "ready_at": _iso(getattr(li, "ready_at", None)),
         # Petpooja addons/customisations → "Made your way" on the board.

@@ -80,11 +80,14 @@ Requires **`X-Store-Id`**.
 | Field | Type | Notes |
 |-------|------|--------|
 | `channel` | string | e.g. kiosk channel name. |
-| `order_type` | `DINEIN` \| `TAKEAWAY` | Enum. |
-| `items` | array | Each item: `item_skuid` (SKU), `quantity`, optional `variation_id`, optional `addon_items` (`addon_item_id`, `quantity`). |
+| `order_type` | `DINEIN` \| `TAKEAWAY` | Enum. Also the default for lines without their own `order_type`. |
+| `items` | array | Each item: `item_skuid` (SKU), `quantity`, optional `variation_id`, optional `addon_items` (`addon_item_id`, `quantity`), and the optional kiosk fields below. |
+| `items[].order_type` | `DINEIN` \| `TAKEAWAY` | Mixed orders: this line's type. Omit to follow the order. Petpooja gets the order as dine-in with `PARCEL` on take-away lines (or as parcel when every line is take-away). |
+| `items[].options` | string[] | Free-text kitchen options, max 8 × 40 chars (e.g. `"Extra benne"`, `"Less spicy"`). Not priced. |
+| `items[].note` | string | Note for the kitchen, max 200 chars. Options and note go to Petpooja as the item's `description` and show on the KDS. |
 | `total_amount_include_tax` | number | |
 | `total_amount_exclude_tax` | number | |
-| `takeaway_charges_without_tax` | number | Default `0`; for `TAKEAWAY`, server may recalculate. |
+| `takeaway_charges_without_tax` | number | Default `0`. Server computes packing on take-away lines only (₹10/unit, cap ₹100, +5% tax); non-zero values must match. |
 | `takeaway_charges_with_tax` | number | Default `0`. |
 
 ### `OrderCreateResponse`

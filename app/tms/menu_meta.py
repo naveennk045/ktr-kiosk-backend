@@ -13,6 +13,8 @@ from typing import Any
 
 CATEGORIES: dict[str, dict[str, Any]] = {
     "davangere": {
+        # Free-text kitchen options the kiosk offers (sent as item options, not priced).
+        "options": ["Extra benne", "Extra crispy", "Less spicy", "Chutney on the side"],
         "stage": "On the tawa",
         "name": "Davangere Benne Dose",
         "short": "Davangere",
@@ -20,6 +22,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
         "fact": "Benne means butter in Kannada. Davangere, a city in central Karnataka, is famous for this dose.",
     },
     "bengaluru": {
+        "options": ["Extra crispy", "Less spicy", "Less oil", "Chutney on the side"],
         "stage": "On the tawa",
         "name": "Bengaluru Dose",
         "short": "Bengaluru",
@@ -27,6 +30,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
         "fact": "Pudi is a spiced lentil powder, spread inside the dose before it's folded.",
     },
     "idli": {
+        "options": ["Extra chutney", "Extra ghee", "Less spicy"],
         "stage": "Steaming",
         "name": "Idlis",
         "short": "Idlis",
@@ -34,6 +38,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
         "fact": "Idli batter is rice and urad dal, fermented overnight. Thatte means plate.",
     },
     "vada": {
+        "options": ["Extra crispy", "Extra chutney"],
         "stage": "Frying",
         "name": "Vadas",
         "short": "Vadas",
@@ -41,6 +46,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
         "fact": "Medu means soft. A good medu wada is crisp outside and soft inside.",
     },
     "rice": {
+        "options": ["Less spicy", "Extra ghee"],
         "stage": "In the pot",
         "name": "Rice",
         "short": "Rice",
@@ -48,6 +54,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
         "fact": "In Karnataka, bath is the name for one-pot rice and rava dishes.",
     },
     "dessert": {
+        "options": ["Less sweet", "Extra ghee"],
         "stage": "In the pot",
         "name": "Desserts",
         "short": "Desserts",
@@ -55,6 +62,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
         "fact": "Kesari takes its name from kesar, saffron.",
     },
     "addon": {
+        "options": [],
         "stage": "Plating",
         "name": "Add-ons",
         "short": "Add-ons",
@@ -62,6 +70,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
         "fact": "Chutneys are ground fresh through the day.",
     },
     "coffee": {
+        "options": ["Strong", "Light", "Less sugar", "No sugar"],
         "stage": "Brewing",
         "name": "Coffee",
         "short": "Coffee",
@@ -218,6 +227,9 @@ for _m in MENU_ITEMS:
     _m["pitch"] = PITCHES.get(_m["id"], _m["lead"])
     if _m["id"] in ("id-thatte", "id-bthatte", "id-gpthatte"):
         _m["fact"] = _THATTE_FACT
+    _m["options"] = list(CATEGORIES[_m["category"]]["options"])
+    if _m["id"] == "cf-cold":
+        _m["options"] = ["Less sugar", "No sugar", "Less ice"]
     if _m["id"] == "rc-chowchow":
         _m["fact"] = "Chow chow means a mix: khara bath and kesari bath on one plate."
 

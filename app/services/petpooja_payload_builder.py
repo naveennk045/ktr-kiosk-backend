@@ -116,7 +116,7 @@ class PetpoojaPayloadBuilder:
                             "pc_gst_details": [],
 
                             # Order metadata
-                            "order_type": "D" if self.order.order_type == OrderType.DINEIN else "P",
+                            "order_type": self._petpooja_order_type(),
                             "ondc_bap": "",
                             "urgent_order": False,
                             "urgent_time": 20,
@@ -157,6 +157,24 @@ class PetpoojaPayloadBuilder:
                 }
             }
         }
+
+    def _petpooja_order_type(self) -> str:
+        """Parcel only when every line is parcel; mixed orders go as dine-in with PARCEL lines."""
+        specs = self.order.item_specs_for_payload()
+        types = {spec.get("order_type") or self.order.order_type for spec in specs} or {self.order.order_type}
+        return "P" if types == {OrderType.TAKEAWAY} else "D"
+
+    def _item_instructions(self, item_spec: dict) -> str:
+        """Kitchen instructions for one line: PARCEL marker (mixed orders), options, then the note."""
+        parts: list[str] = []
+        line_type = item_spec.get("order_type") or self.order.order_type
+        if line_type == OrderType.TAKEAWAY and self._petpooja_order_type() == "D":
+            parts.append("PARCEL")
+        parts.extend(str(o) for o in item_spec.get("options") or [])
+        note = (item_spec.get("note") or "").strip()
+        if note:
+            parts.append(f"Note: {note}")
+        return ", ".join(parts)[:250]
 
     def _resolve_variation(self, src_item: dict, variation_id: Optional[str]) -> Optional[dict]:
         """
@@ -284,7 +302,7 @@ class PetpoojaPayloadBuilder:
                 "price": str(unit_price),
                 "final_price": str(unit_final_price),
                 "quantity": str(quantity),
-                "description": "",
+                "description": self._item_instructions(item_spec),
                 "variation_name": variation_name,
                 "variation_id": variation_id_out,
                 "AddonItem": {"details": addon_details},

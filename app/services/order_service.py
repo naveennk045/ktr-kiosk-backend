@@ -72,7 +72,9 @@ class OrderService:
 
             quantity = item_req.quantity
             item_category_id = str(catalog_item.get("categoryId", ""))
-            if item_category_id not in TAKEAWAY_EXCLUDED_CATEGORY_IDS:
+            # Mixed orders: packing charges only for lines that are actually parcel.
+            line_type = item_req.order_type or request.order_type
+            if line_type == OrderType.TAKEAWAY and item_category_id not in TAKEAWAY_EXCLUDED_CATEGORY_IDS:
                 takeaway_chargeable_qty_sum += quantity
             skip_kds_tms = item_category_id in KDS_TMS_IGNORE_CATEGORY_IDS
 
@@ -121,6 +123,10 @@ class OrderService:
                 "unit_price": full_unit_price,
                 "variation_id": item_req.variation_id,
                 "addon_items": addon_items_list,
+                # Stored only when it differs from the order, so single-type orders look as before.
+                "order_type": item_req.order_type if item_req.order_type not in (None, request.order_type) else None,
+                "options": list(item_req.options),
+                "note": (item_req.note or "").strip() or None,
                 "initial_order_status": (
                     OrderItemStatus.COLLECTED
                     if skip_kds_tms
@@ -128,29 +134,21 @@ class OrderService:
                 ),
             })
 
-        if request.order_type == OrderType.DINEIN:
-            if abs(request.takeaway_charges_without_tax) > 0.01 or abs(
-                request.takeaway_charges_with_tax
-            ) > 0.01:
+        # Zero when no line is parcel (plain dine-in), so the old DINEIN rule still holds.
+        tw_exc, tw_inc = compute_takeaway_charges(takeaway_chargeable_qty_sum)
+        client_sent = (
+            abs(request.takeaway_charges_without_tax) > 0.01
+            or abs(request.takeaway_charges_with_tax) > 0.01
+        )
+        if client_sent:
+            if abs(request.takeaway_charges_without_tax - tw_exc) > 0.05 or abs(
+                request.takeaway_charges_with_tax - tw_inc
+            ) > 0.05:
                 raise ValueError(
-                    "For DINEIN, takeaway_charges_without_tax and takeaway_charges_with_tax must be 0"
+                    "Takeaway charges must match server calculation: "
+                    f"takeaway_charges_without_tax={tw_exc:.2f}, "
+                    f"takeaway_charges_with_tax={tw_inc:.2f}"
                 )
-            tw_exc, tw_inc = 0.0, 0.0
-        else:
-            tw_exc, tw_inc = compute_takeaway_charges(takeaway_chargeable_qty_sum)
-            client_sent = (
-                abs(request.takeaway_charges_without_tax) > 0.01
-                or abs(request.takeaway_charges_with_tax) > 0.01
-            )
-            if client_sent:
-                if abs(request.takeaway_charges_without_tax - tw_exc) > 0.05 or abs(
-                    request.takeaway_charges_with_tax - tw_inc
-                ) > 0.05:
-                    raise ValueError(
-                        "Takeaway charges must match server calculation: "
-                        f"takeaway_charges_without_tax={tw_exc:.2f}, "
-                        f"takeaway_charges_with_tax={tw_inc:.2f}"
-                    )
 
         backend_total_exc += tw_exc
         backend_total_inc += tw_inc
@@ -240,6 +238,9 @@ class OrderService:
                     price=spec["unit_price"],
                     variation_id=spec.get("variation_id"),
                     addon_items=spec.get("addon_items") or [],
+                    order_type=spec.get("order_type"),
+                    options=spec.get("options") or [],
+                    note=spec.get("note"),
                     order_status=spec.get("initial_order_status", OrderItemStatus.NOT_ACCEPTED),
                 )
             )

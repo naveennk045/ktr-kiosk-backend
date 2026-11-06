@@ -167,11 +167,18 @@ class Order(Base):
                     "addon_items": li.addon_items
                     if isinstance(li.addon_items, list)
                     else [],
+                    "order_type": li.order_type,
+                    "options": li.options if isinstance(li.options, list) else [],
+                    "note": li.note,
                 }
                 for li in sorted(rel, key=lambda x: x.id)
             ]
         raw = self.items
         return list(raw) if raw else []
+
+    def line_order_type(self, line: "OrderItem") -> OrderType:
+        """Effective DINEIN / TAKEAWAY for a line (mixed orders set it per line)."""
+        return line.order_type or self.order_type
 
     def __repr__(self):
         return (
@@ -207,6 +214,11 @@ class OrderItem(Base):
     )
     variation_id = Column(String(64), nullable=True)
     addon_items = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    # Per-line DINEIN / TAKEAWAY for mixed orders; NULL means the order's order_type.
+    order_type = Column(Enum(OrderType), nullable=True)
+    # Free-text kitchen options and note (special instructions), not priced.
+    options = Column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    note = Column(String(200), nullable=True)
     # Kitchen timestamps for the TMS board: first move to PREPARING, and when the last portion became ready.
     preparing_at = Column(DateTime(timezone=True), nullable=True)
     ready_at = Column(DateTime(timezone=True), nullable=True)
