@@ -13,7 +13,7 @@ FastAPI service (default port **8080** via Uvicorn). Interactive schemas: **`GET
 | **Payment routes** | **`X-Store-Id` is not used.** Store is taken from the **order** row (`orders.store_id`) created at order time. |
 | **Petpooja menu webhook** | No `X-Store-Id`; the store is resolved from **`petpooja_restaurant_id`** in the payload vs `store_petpooja_credentials`. |
 
-**Kitchen & token displays:** see **`docs/KDS-TMS-client-guide.md`** for running the stack, `/kds` and `/tms` APIs, WebSocket/SSE, Redis events, and frontend checklists.
+**Kitchen & token displays:** see **`docs/KDS-TMS-client-guide.md`** for running the stack, `/kds` and `/tms` APIs, WebSocket/SSE, Redis events, board features and frontend checklists, and **`docs/TMS-architecture.md`** for the architecture, data model, Redis design and rollout.
 
 ---
 
