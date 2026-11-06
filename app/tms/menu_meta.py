@@ -69,6 +69,14 @@ CATEGORIES: dict[str, dict[str, Any]] = {
         "image": None,
         "fact": "Chutneys are ground fresh through the day.",
     },
+    "paddu": {
+        "options": ["Extra chutney", "Extra ghee", "Less spicy"],
+        "stage": "On the paddu pan",
+        "name": "Paddu",
+        "short": "Paddu",
+        "image": None,
+        "fact": "Paddu are cooked in a pan with round hollows, from the same fermented batter as dose.",
+    },
     "coffee": {
         "options": ["Strong", "Light", "Less sugar", "No sugar"],
         "stage": "Brewing",
@@ -118,7 +126,16 @@ MENU_ITEMS: list[dict[str, Any]] = [
     _item("davangere", "dv-sada", "Benne Sada Dose", "dav", "Plain dose, roasted in benne.",
           "A plain Davangere dose roasted in benne, served with chutney.", trad=True),
     _item("bengaluru", "bl-bpm", "Benne Pudi Masala Dose", "blr", "Benne, pudi and potato palya.",
-          "Crisp Bengaluru dose with benne, spiced pudi and potato palya inside.", sig=True),
+          "Crisp Bengaluru dose with benne, spiced pudi and potato palya inside.", sig=True,
+          aliases=("Benne Pudi Masala",)),
+    _item("bengaluru", "bl-bgr", "Benne Garlic Roast Dose", "blr", "Roasted crisp with benne and garlic.",
+          "A Bengaluru dose roasted extra crisp with benne and crushed garlic."),
+    _item("bengaluru", "bl-bgrm", "Benne Garlic Roast Masala Dose", "blr", "Benne, garlic and potato palya.",
+          "Roasted extra crisp with benne and crushed garlic, filled with potato palya."),
+    _item("bengaluru", "bl-bgrp", "Benne Garlic Roast Plain Dose", "blr", "Crisp with benne and garlic.",
+          "Roasted extra crisp with benne and crushed garlic, served plain with chutney."),
+    _item("bengaluru", "bl-ggr", "Ghee Garlic Roast Dose", "blr", "Roasted crisp with ghee and garlic.",
+          "A Bengaluru dose roasted extra crisp with ghee and crushed garlic."),
     _item("bengaluru", "bl-bpp", "Benne Pudi Plain Dose", "blr", "Benne and spiced pudi.",
           "Crisp Bengaluru dose with benne and a layer of spiced pudi."),
     _item("bengaluru", "bl-bm", "Benne Masala Dose", "blr", "Benne and potato palya.",
@@ -149,6 +166,16 @@ MENU_ITEMS: list[dict[str, Any]] = [
           "Classic soft idli with fresh chutney."),
     _item("vada", "vd-dal", "Dal Vada", None, "Crisp chana dal fritters.",
           "Crunchy fritters of coarsely ground chana dal, onion and curry leaves.", trad=True, aliases=("Dal Wada",)),
+    _item("vada", "vd-maddur", "Maddur Wada", None, "Crisp, flat onion vada from Maddur.",
+          "A flat, crunchy vada of rice flour, semolina, onion and curry leaves.", trad=True,
+          fact="Maddur Wada is named after Maddur, a stop between Bengaluru and Mysuru where it was sold to travellers.",
+          aliases=("Maddur Vada",)),
+    _item("paddu", "pd-pudi", "Pudi Paddu", None, "Paddu tossed in spiced pudi.",
+          "Soft-centred paddu with crisp edges, tossed in spiced lentil pudi."),
+    _item("paddu", "pd-ghee", "Ghee Paddu", None, "Paddu finished with ghee.",
+          "Soft-centred paddu with crisp edges, finished with a drizzle of ghee."),
+    _item("paddu", "pd-plain", "Plain Paddu", None, "Crisp outside, soft inside.",
+          "Round paddu from the dose batter, crisp outside and soft inside, with chutney.", trad=True),
     _item("vada", "vd-medu", "Medu Wada", None, "Crisp outside, soft inside.",
           "Golden urad dal rings, crisp outside and soft inside. Made for dunking in chutney.", trad=True,
           aliases=("Medu Vada",)),
@@ -174,6 +201,10 @@ MENU_ITEMS: list[dict[str, Any]] = [
           aliases=("Filter Coffee",)),
     _item("coffee", "cf-cold", "Cold Filter Coffee", "coffee", "Our filter coffee, served cold.",
           "Our filter coffee decoction, served cold. Mumbai heat, Karnataka coffee."),
+    _item("coffee", "cf-black", "Black Filter Coffee", "coffee", "Strong decoction, no milk.",
+          "Our filter coffee decoction served black: strong, bright and bitter-sweet."),
+    _item("addon", "ad-water", "Drinking Water", None, "Packaged drinking water.",
+          "A bottle of packaged drinking water."),
     _item("addon", "ad-peanut", "Peanut Chutney", None, "Extra bowl of peanut chutney.",
           "An extra bowl of our peanut chutney."),
     _item("addon", "ad-gatti", "Gatti Dose Chutney", None, "Extra bowl of Gatti dose chutney.",
@@ -237,7 +268,7 @@ for _m in MENU_ITEMS:
 SERVED_STEP = 50
 GROUP_BY_CATEGORY: dict[str, str] = {
     "davangere": "dose", "bengaluru": "dose", "idli": "idli", "vada": "vada",
-    "rice": "rice", "dessert": "dessert", "coffee": "coffee",
+    "rice": "rice", "dessert": "dessert", "coffee": "coffee", "paddu": "paddu",
 }
 GROUPS: dict[str, dict[str, Any]] = {
     "dose": {"one": "dose", "many": "doses", "image": "dav"},
@@ -246,6 +277,7 @@ GROUPS: dict[str, dict[str, Any]] = {
     "rice": {"one": "rice dish", "many": "rice dishes", "image": "puli"},
     "dessert": {"one": "Kesari Bath", "many": "Kesari Baths", "image": None},
     "coffee": {"one": "filter coffee", "many": "filter coffees", "image": "coffee"},
+    "paddu": {"one": "paddu plate", "many": "paddu plates", "image": None},
 }
 
 TICKER: list[dict[str, str]] = [
