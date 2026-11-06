@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from uuid import uuid4
 from fastapi import FastAPI
@@ -17,7 +18,13 @@ from app.dashboard import analytics_router, orders_read_router
 from app.kds.router import router as kds_router
 from app.tms.router import router as tms_router
 
-from app.core.logger import setup_logging, request_id_var
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.core.logger import bind_log_context, request_id_var, reset_log_context, setup_logging
 import json
 
 # Configure Logging
@@ -166,64 +173,123 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_logging_handler(request: Request, exc: StarletteHTTPException):
+    """Log why a 4xx/5xx was raised (the request line only has the status), then respond as usual."""
+    if not request.url.path.startswith(_UNLOGGED_PREFIXES):
+        logger.log(
+            logging.ERROR if exc.status_code >= 500 else logging.WARNING,
+            f"HTTP {exc.status_code}: {exc.detail}",
+            extra={"extra_data": {"event": "http.error", "status_code": exc.status_code, "detail": exc.detail}},
+        )
+    return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_logging_handler(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith(_UNLOGGED_PREFIXES):
+        return await request_validation_exception_handler(request, exc)
+    logger.warning(
+        f"Request validation failed: {len(exc.errors())} error(s)",
+        extra={"extra_data": {"event": "http.validation_error", "errors": [
+            # Drop the rejected input value: it could be a PIN or token typed into the wrong field.
+            {k: v for k, v in err.items() if k not in ("input", "ctx")}
+            for err in jsonable_encoder(exc.errors())
+        ]}},
+    )
+    return await request_validation_exception_handler(request, exc)
+
+
+# Paths never logged: the logs viewer itself (reading logs would write logs) and CORS preflights.
+_UNLOGGED_PREFIXES = ("/admin/logs",)
+# Frequent polling endpoints: logged at DEBUG while healthy so they don't bury real events.
+_POLL_PATTERN = re.compile(r"^/(tms/snapshot|tms/health|kds/board|kds/health|payments/(qr|edc)/status/)")
+_ORDER_IN_PATH = re.compile(r"/payments/(?:qr|edc)/status/(?P<order_id>[^/]+)")
+SLOW_REQUEST_MS = 2000
+_MAX_LOGGED_BODY = 4096
+
+
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
+    """One summary line per request: method, path, status, duration, store, order, masked body."""
+    path = request.url.path
+    method = request.method
+    if method == "OPTIONS" or path.startswith(_UNLOGGED_PREFIXES):
+        return await call_next(request)
+
     request_id = request.headers.get("x-request-id") or str(uuid4())
     request_id_var.set(request_id)
-    
+    reset_log_context()
+    bind_log_context(store_id=(request.headers.get("x-store-id") or "").strip() or None)
+
     body_json = None
-    try:
-        if "application/json" in request.headers.get("content-type", ""):
+    if method in ("POST", "PUT", "PATCH") and "application/json" in request.headers.get("content-type", ""):
+        try:
             body = await request.body()
             if body:
                 # Recreate the stream for downstream consumers
                 async def receive():
                     return {"type": "http.request", "body": body}
                 request._receive = receive
-                
-                try:
-                    body_json = json.loads(body)
-                except Exception:
-                    body_json = "<invalid_json>"
-    except Exception:
-        pass
+                if len(body) <= _MAX_LOGGED_BODY:
+                    try:
+                        body_json = json.loads(body)
+                    except ValueError:
+                        body_json = "<invalid_json>"
+                else:
+                    body_json = f"<{len(body)} bytes, not logged>"
+        except Exception:
+            pass
 
-    method = request.method
-    path = request.url.path
-    query = request.url.query if request.url.query else ""
-    client_ip = request.client.host if request.client else "unknown"
-    user_agent = request.headers.get("user-agent", "-")
+    order_match = _ORDER_IN_PATH.search(path)
+    bind_log_context(
+        order_id=(body_json.get("order_id") if isinstance(body_json, dict) else None)
+        or (order_match.group("order_id") if order_match else None)
+    )
+
     started = time.perf_counter()
-
-    extra_data = {
+    fields = {
+        "event": "http.request",
         "method": method,
         "path": path,
-        "query": query,
-        "client_ip": client_ip,
-        "user_agent": user_agent,
+        "query": request.url.query or None,
+        "client_ip": request.client.host if request.client else None,
+        "user_agent": request.headers.get("user-agent"),
     }
     if body_json is not None:
-        extra_data["request_body"] = body_json
+        fields["request_body"] = body_json
 
-    logger.info(
-        f"request_started method={method} path={path}",
-        extra={"extra_data": extra_data}
-    )
     try:
         response = await call_next(request)
     except Exception:
-        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 1)
         logger.exception(
-            f"request_failed method={method} path={path} duration_ms={elapsed_ms}",
-            extra={"extra_data": {"duration_ms": elapsed_ms}}
+            f"{method} {path} failed after {elapsed_ms} ms",
+            extra={"extra_data": {**fields, "status_code": 500, "duration_ms": elapsed_ms}},
         )
-        raise
+        # Answer here (instead of re-raising) so the traceback is logged once, not again by uvicorn,
+        # and the caller gets the request id to quote when reporting the error.
+        return JSONResponse(
+            {"detail": "Internal server error", "request_id": request_id},
+            status_code=500,
+            headers={"X-Request-Id": request_id},
+        )
 
-    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 1)
     response.headers["X-Request-Id"] = request_id
-    logger.info(
-        f"request_completed method={method} path={path} status={response.status_code} duration_ms={elapsed_ms}",
-        extra={"extra_data": {"status_code": response.status_code, "duration_ms": elapsed_ms}}
+    status_code = response.status_code
+    if status_code >= 500:
+        level = logging.ERROR
+    elif status_code >= 400 or elapsed_ms >= SLOW_REQUEST_MS:
+        level = logging.WARNING
+    elif method == "GET" and _POLL_PATTERN.match(path):
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logger.log(
+        level,
+        f"{method} {path} → {status_code} in {elapsed_ms} ms" + (" (slow)" if elapsed_ms >= SLOW_REQUEST_MS else ""),
+        extra={"extra_data": {**fields, "status_code": status_code, "duration_ms": elapsed_ms}},
     )
     return response
 

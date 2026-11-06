@@ -302,47 +302,78 @@ Response `provider` message is driven by Pine Labs (`EDCInitiateResponse` uses p
 | `GET` | `/admin/kiosk-config` | **None** | JSON **array** of all **active** stores; each element has **`store_id`**, **`store_code`**, **`store_name`**, **`pinelabs_configured`**, and **`terminals`** (PineLabs `terminal_id`, `pinelabs_store_id`, labels). Use this to configure any outlet; then use **`X-Store-Id`** on other routes. |
 | `GET` | `/admin/cash-pins` | **`X-Store-Id`** required | Staff **`id`** + **`staff_name`** only (no PIN values). |
 | `POST` | `/admin/cache/invalidate` | **`X-Store-Id`** required | Clears Redis cache for that store’s credentials/meta. |
-| `GET` | `/admin/logs` | **None** | Returns latest parsed `app.log` entries for frontend log table. Query: `lines` (default `200`, max `2000`), `contains` (optional case-insensitive filter). |
-| `GET` | `/admin/logs/stream` | **None** | SSE stream for live logs from `app.log`. Query: `initial_lines` (default `50`), `contains` (optional filter). Emits `entry` objects suitable for table append. |
+| `GET` | `/admin/logs` | **None** | Newest matching entries from `app.log` and its rotated backups, oldest → newest. Query: `lines` (default `300`, max `5000`), `contains`, `level` (minimum: `DEBUG`/`INFO`/`WARNING`/`ERROR`), `request_id`, `order_id` (the order's whole journey), `event` (name or prefix, e.g. `payment.`), `logger` (prefix). Filters run on the server across up to 200 000 lines. |
+| `GET` | `/admin/logs/stream` | **None** | SSE: the last `initial_lines` (default `50`) matching entries, then each new matching entry. Same filters as `/admin/logs`. Follows log rotation. |
 
-### Admin logs API examples
+### Logging format
 
-#### `GET /admin/logs?lines=300&contains=Access`
+The backend writes one JSON object per line (`app/core/logger.py`) to a rotating `app.log`
+(`LOG_FILE`, `LOG_MAX_BYTES` default 20 MB, `LOG_BACKUP_COUNT` default 5, `LOG_LEVEL` default `INFO`) and to stdout.
+
+| Field | Meaning |
+|-------|---------|
+| `timestamp` | UTC, e.g. `2026-11-06T11:28:05.003Z` |
+| `level`, `logger`, `message` | Standard |
+| `request_id` | Per HTTP request (`X-Request-Id` header if the client sent one, echoed back in the response); `-` outside requests |
+| `store_id`, `order_id` | Added automatically once known in the request (from `X-Store-Id`, the body, the path or the service code) |
+| `event` | Structured event name (see below) plus its own fields |
+| `source` | `module.function:line` on warnings and errors |
+| `error_type`, `error_message`, `stack_trace` | On exceptions (the whole traceback stays in one entry) |
+
+Sensitive keys (`pin`, `password`, `token`, `secret`, `salt`, keys/credentials…) are masked as `***` everywhere,
+including request bodies. The logs endpoints themselves and CORS preflights are never logged.
+
+| Event | When |
+|-------|------|
+| `http.request` | One summary per request: `method`, `path`, `status_code`, `duration_ms`, masked `request_body`. WARNING for 4xx or ≥ 2 s, ERROR for 5xx; healthy polling (`/tms/snapshot`, `/kds/board`, payment status) is DEBUG. |
+| `http.error`, `http.validation_error` | Why a request was rejected (`detail` / validation errors without the rejected values) |
+| `order.created`, `order.kot_assigned` | Order saved (lines, type, total, discount); token assigned |
+| `payment.status_changed` | `previous_status` → `payment_status`, method, provider code, amount, `source` (poll, webhook, cash · staff) |
+| `payment.cash_rejected` | `reason`: `pin_missing`, `pin_invalid`, `amount_mismatch` |
+| `petpooja.sync_started`, `petpooja.sync_success`, `petpooja.sync_failed` | Petpooja order push; failures carry `stage` (catalog, payload, save_order, request) |
+| `kds.line_status` | Kitchen moved a line (item, quantity, new status) |
+
+An unhandled exception returns `500 {"detail": "Internal server error", "request_id": "…"}` so the caller can quote the request id.
+
+### Admin logs API example
+
+#### `GET /admin/logs?order_id=KTR-4F9A2C17B3&level=INFO`
 
 ```json
 {
-  "path": "/root/ktr-kiosk-backend/app.log",
+  "path": "/workspace/app.log",
+  "files": ["app.log", "app.log.1"],
+  "scanned_lines": 1532,
+  "complete": true,
   "count": 2,
   "entries": [
     {
-      "timestamp": "2026-05-02 12:24:46,759",
+      "timestamp": "2026-11-06T11:55:16.583Z",
       "level": "INFO",
-      "logger": "app.main",
-      "message": "[Access][a0d2...] request_started method=POST path=/payments/qr/init query=- client_ip=10.0.0.3 ua=Mozilla/5.0",
-      "raw": "2026-05-02 12:24:46,759 - [INFO] - app.main - [Access][a0d2...] request_started method=POST path=/payments/qr/init query=- client_ip=10.0.0.3 ua=Mozilla/5.0"
+      "logger": "app.services.order_service",
+      "message": "Order KTR-4F9A2C17B3 created: 2 lines, ₹588",
+      "request_id": "KIOSK-1A2B3C4D5E",
+      "store_id": "1",
+      "order_id": "KTR-4F9A2C17B3",
+      "event": "order.created",
+      "order_type": "DINEIN",
+      "total_include_tax": 588.0
+    },
+    {
+      "timestamp": "2026-11-06T11:55:16.630Z",
+      "level": "INFO",
+      "logger": "app.services.payment_service",
+      "message": "Payment KTR-4F9A2C17B3: PENDING → COMPLETED via QR (phonepe_status)",
+      "request_id": "KIOSK-39C0F972AB",
+      "order_id": "KTR-4F9A2C17B3",
+      "event": "payment.status_changed",
+      "payment_status": "COMPLETED"
     }
   ]
 }
 ```
 
-#### `GET /admin/logs/stream?contains=payment&initial_lines=100`
-
-SSE `message` event payload:
-
-```json
-{
-  "type": "log",
-  "entry": {
-    "timestamp": "2026-05-02 12:24:47,040",
-    "level": "INFO",
-    "logger": "app.services.order_service",
-    "message": "KDS sync success | order_id=KTR-1FADC67110 | petpooja_order_id=KTR-1FADC67110",
-    "raw": "2026-05-02 12:24:47,040 - [INFO] - app.services.order_service - KDS sync success | order_id=KTR-1FADC67110 | petpooja_order_id=KTR-1FADC67110"
-  }
-}
-```
-
-Frontend table suggestion (columns): `timestamp`, `level`, `logger`, `message`.
+The SSE stream sends `{"type": "log", "entry": {…}}` per entry. The admin **Logs** screen groups entries by `request_id`.
 
 ### Store discovery examples
 

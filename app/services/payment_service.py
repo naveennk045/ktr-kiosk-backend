@@ -34,6 +34,7 @@ from app.services.store_cache import (
 from app.utils.petpooja import PetpoojaClient
 from app.db.session import SessionLocal
 from app.kds.notify import emit_kitchen_event
+from app.core.logger import bind_log_context, log_event
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,28 @@ class PaymentService:
         self.db = db
         self.http_client = http_client
         self.redis_client = redis_client
+
+    @staticmethod
+    def _log_status_change(order: Order, prev_status: PaymentStatus, source: str) -> None:
+        """payment.status_changed event whenever a payment moves (PENDING → COMPLETED / FAILED…)."""
+        if order.payment_status == prev_status:
+            return
+        new = order.payment_status
+        log_event(
+            logger,
+            "payment.status_changed",
+            f"Payment {order.order_id}: {prev_status.value if prev_status else '-'} → {new.value}"
+            f" via {order.payment_method.value if order.payment_method else '?'} ({source})",
+            level=logging.WARNING if new == PaymentStatus.FAILED else logging.INFO,
+            store_id=order.store_id,
+            previous_status=prev_status.value if prev_status else None,
+            payment_status=new.value,
+            payment_method=order.payment_method.value if order.payment_method else None,
+            provider_code=order.provider_code,
+            amount=float(order.total_amount_include_tax),
+            kot_code=order.kot_code,
+            source=source,
+        )
 
     async def _emit_board_refresh_if_newly_completed(
         self, order: Order, prev_status: PaymentStatus
@@ -124,6 +147,7 @@ class PaymentService:
 
     # --- QR LOGIC ---
     async def initiate_qr(self, order_id: str, amount_paise: int, terminal_id: Optional[str] = None):
+        bind_log_context(order_id=order_id)
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
@@ -228,6 +252,7 @@ class PaymentService:
 
     # --- EDC LOGIC (Pine Labs) ---
     async def initiate_edc(self, order_id: str, amount_paise: int, terminal_id: str, payment_method: PaymentMethod = PaymentMethod.CARD):
+        bind_log_context(order_id=order_id)
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
@@ -334,8 +359,11 @@ class PaymentService:
 
     # --- CASH LOGIC ---
     async def initiate_cash(self, order_id: str, amount_paise: int, terminal_id: Optional[str] = None, pin: str = ""):
+        bind_log_context(order_id=order_id)
         pin_norm = (pin or "").strip()
         if not pin_norm:
+            log_event(logger, "payment.cash_rejected", f"Cash payment for {order_id} without a PIN",
+                      level=logging.WARNING, reason="pin_missing")
             raise HTTPException(status_code=401, detail="PIN is required for cash payment")
 
         stmt = select(Order).where(Order.order_id == order_id)
@@ -349,6 +377,8 @@ class PaymentService:
         )
         cash_pin = (await self.db.execute(cp_stmt)).scalar_one_or_none()
         if not cash_pin:
+            log_event(logger, "payment.cash_rejected", f"Wrong staff PIN for cash payment on {order_id}",
+                      level=logging.WARNING, reason="pin_invalid", store_id=order.store_id)
             raise HTTPException(status_code=401, detail="Invalid PIN for cash payment")
 
         if order.payment_status == PaymentStatus.COMPLETED:
@@ -356,6 +386,9 @@ class PaymentService:
 
         expected_paise = int(round(float(order.total_amount_include_tax) * 100))
         if amount_paise != expected_paise:
+            log_event(logger, "payment.cash_rejected", f"Cash amount mismatch on {order_id}",
+                      level=logging.WARNING, reason="amount_mismatch",
+                      amount_paise=amount_paise, expected_paise=expected_paise)
             raise HTTPException(
                 status_code=400,
                 detail=f"amount_paise must be {expected_paise} (order total in paise)",
@@ -377,6 +410,7 @@ class PaymentService:
 
         await self.db.commit()
         await self.db.refresh(order)
+        self._log_status_change(order, prev_status, f"cash · {cash_pin.staff_name}")
 
         osvc = await self._order_service_for_order(order)
         await osvc.assign_kot_if_needed(order)
@@ -388,6 +422,7 @@ class PaymentService:
 
     # --- STATUS CHECK LOGIC (Shared) ---
     async def check_status(self, order_id: str):
+        bind_log_context(order_id=order_id)
         stmt = select(Order).where(Order.order_id == order_id)
         order = (await self.db.execute(stmt)).scalar_one_or_none()
         if not order:
@@ -464,6 +499,7 @@ class PaymentService:
                 order.provider_resp = data
                 order.provider_code = str(response_code)
                 await self.db.commit()
+                self._log_status_change(order, prev_status, "pinelabs_status")
                 logger.info(
                     "EDC status updated | order_id=%s | response_code=%s | payment_status=%s",
                     order.order_id,
@@ -520,6 +556,7 @@ class PaymentService:
                 order.provider_code = code
                 order.provider_resp = data
                 await self.db.commit()
+                self._log_status_change(order, prev_status, "phonepe_status")
                 logger.info(
                     "PhonePe status updated | order_id=%s | code=%s | payment_status=%s",
                     order.order_id,
@@ -553,6 +590,7 @@ class PaymentService:
             return order
 
     async def handle_webhook(self, merchant_order_id: str, code: str, payload: dict):
+        bind_log_context(order_id=merchant_order_id)
         stmt = select(Order).where(Order.order_id == merchant_order_id)
         result = await self.db.execute(stmt)
         order = result.scalar_one_or_none()
@@ -572,6 +610,7 @@ class PaymentService:
 
         await self.db.commit()
         await self.db.refresh(order)
+        self._log_status_change(order, prev_status, "phonepe_webhook")
         logger.info(
             "Webhook status persisted | order_id=%s | payment_status=%s",
             merchant_order_id,
