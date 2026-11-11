@@ -8,6 +8,7 @@ from .order import (
     KdsStatus,
 )
 from .cash_pin import CashPin
+from .admin_user import AdminUser
 from .store import (
     Store,
     StorePetpoojaCredentials,

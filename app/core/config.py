@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     PHONEPE_QR_INIT_ENDPOINT: str
     PHONEPE_TRANSACTION_ENDPOINT: str
 
+    # Dashboard (KTR One) sign-in. The secret signs session tokens: at least 32 random characters,
+    # the same value on every app instance. Without it sign-in answers 503.
+    ADMIN_JWT_SECRET: str | None = None
+    ADMIN_SESSION_HOURS: float = 8
+
     APP_NAME: str = "KTR KIOSK"
     DEBUG_MODE: bool = False
 

@@ -1,5 +1,6 @@
 import logging
 import redis.asyncio as redis
+from app.core.auth import require_admin
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +25,7 @@ async def get_catalog(
     return await service.get_catalog(channel, db)
 
 
-@router.delete("/cache")
+@router.delete("/cache", dependencies=[Depends(require_admin)])
 async def clear_catalog_cache(
     channel: str,
     store: Store = Depends(get_store_context),
@@ -51,7 +52,7 @@ async def clear_catalog_cache(
     }
 
 
-@router.get("/cache-stats")
+@router.get("/cache-stats", dependencies=[Depends(require_admin)])
 async def get_cache_stats(
     store: Store = Depends(get_store_context),
     redis_client: redis.Redis = Depends(get_redis_client),

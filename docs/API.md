@@ -17,6 +17,36 @@ FastAPI service (default port **8080** via Uvicorn). Interactive schemas: **`GET
 
 ---
 
+## Dashboard sign-in (`/auth`)
+
+KTR One (the admin dashboard) signs in with a username and password and then sends
+`Authorization: Bearer <token>` on every request. Sessions last 8 hours (`ADMIN_SESSION_HOURS`)
+and are not refreshed; after that the user signs in again.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/auth/login` | Body `{username, password}` → `{access_token, token_type, expires_in, expires_at, user}`. `401` wrong credentials, `429` after 5 failed attempts for a username (15-minute cool-off), `503` if `ADMIN_JWT_SECRET` is not set. |
+| `GET` | `/auth/me` | The signed-in user and `expires_at`. |
+| `POST` | `/auth/logout` | Revokes the token (kept in Redis until it would have expired). |
+
+**Needs a signed-in admin (`401` otherwise):** everything under `/admin` except
+`/admin/kiosk-config`; `/analytics/*`; `GET /orders/` and `GET /orders/{order_id}`; discount
+management (`GET /discounts`, `GET/PUT/DELETE /discounts/{id}`, `POST /discounts`,
+`PATCH /discounts/{id}/status`); `/itemdetails/`; `DELETE /catalog/cache` and `/catalog/cache-stats`.
+`GET /admin/logs/stream` is read with `EventSource`, which cannot send headers, so that one route
+also accepts `?access_token=<token>`.
+
+**Stays open (kiosks, kitchen screens, token boards, webhooks):** `GET /catalog/`, `POST /orders/`,
+`/payments/*`, `/discounts/eligible`, `/discounts/validate`, `/kds/*`, `/tms/*`,
+`/admin/kiosk-config`, `/petpooja/*`.
+
+**Users** live in the `admin_users` table (created at startup) and are added directly in the
+database; there is no sign-up API. `python scripts/admin_user.py add <username> ["Display Name"]`
+asks for a password and prints the `INSERT` to run (`passwd` and `disable` print the matching
+`UPDATE`). Passwords are stored as scrypt hashes.
+
+---
+
 ## Root
 
 | Method | Path | Headers | Description |
@@ -145,6 +175,31 @@ Requires **`X-Store-Id`**. All endpoints count **COMPLETED** orders only in **As
 | `GET` | `/analytics/items/top` | `period` (default `today`), `from_date`, `to_date`, `limit` 1–100 (default `10`) | **Top N items** ranked by total quantity sold. |
 | `GET` | `/analytics/items/daily` | `period` (default `today`), `from_date`, `to_date`, `sku` (optional) | **Per-day item counts** — how many of each item ordered each day (IST date). Optionally filter to a single SKU for trend view. |
 | `GET` | `/analytics/items/summary` | `period` (default `today`), `from_date`, `to_date` | **Full item-wise summary**: all items with qty, revenue, order count, avg qty/order. |
+
+### Customer-behaviour Insights
+
+| Method | Path | Query | Description |
+|--------|------|-------|-------------|
+| `GET` | `/analytics/insights` | `period` (default `today`), `from_date`, `to_date`, `daypart` = `all` (default) \| `breakfast` (IST hour < 11) \| `lunch` (11–15) \| `evening` (16+) | Everything the ktr-one **Insights** page shows, in one read-only call. |
+
+Response (`InsightsResponse` in `app/dashboard/schemas.py`):
+
+| Field | Meaning |
+|-------|---------|
+| `window`, `previous_window` | Resolved IST window (`start`, `end`, `days`). The previous window is the same number of IST calendar days immediately before, cut off at the same time of day; `null` for `all_time` and open-ended custom ranges. |
+| `kpis`, `previous_kpis` | `orders`, `revenue` (order totals incl. tax), `avg_order_value`, `units`, `items_per_order`, `takeaway_orders`, `takeaway_share_pct`, `timed_orders`, `ready_seconds_avg`, `ready_seconds_median`. |
+| `order_types` | `dine_in` / `takeaway` (`orders` and `revenue` by `orders.order_type`; `units` by each line's effective type), `by_daypart[]`, `top_takeaway_items[]`, `takeaway_charges_total`, `mixed_orders`. |
+| `best_sellers[]`, `slow_movers[]` | Top 8 / bottom 6 items by units (`sku`, `item_name`, `quantity`, `revenue`, `order_count`, `previous_quantity`). Only items sold in the period. |
+| `movers[]` | Items with at least 6 units across both periods: `quantity`, `previous_quantity`, `change_pct` (`null` = did not sell in the previous period). Sorted rising first. |
+| `categories[]` | Per catalog category: `quantity`, `revenue`, `revenue_share_pct`, `order_count`, `order_share_pct`, `timed_lines`, `ready_seconds_avg`. `category_mapping_available=false` when no catalog was found (everything is then `uncategorized`). |
+| `heatmap[]` | `weekday` (0 = Sunday … 6 = Saturday, IST), `hour` (0–23 IST), `orders`. Only non-empty cells. |
+| `daily[]` | One row per IST day in the window (zero-filled): `date`, `orders`, `revenue`. |
+| `habits` | Order counts: `multi_item_orders`, `customised_orders`, `option_orders`, `note_orders`, `addon_orders`, `discount_orders` (divide by `orders`). |
+| `pairs[]` | Top 6 item pairs in the same order: `orders`, `share_pct` of all orders. |
+| `customisations[]` | Top 8 `order_items.options` values per category: `quantity`, `share_pct` of that category's units. |
+| `suggestions[]` | Rule-based tips (`kind` = `star` \| `up` \| `warn` \| `idea` \| `clock`, `text`), at most 6, derived only from the fields above. |
+
+Kitchen times use `order_items.preparing_at` (set when the order is paid) and `order_items.ready_at` (set when the KDS marks the last portion ready). The order-level figure only counts orders whose kitchen lines are all ready. Packaging counts are not stored anywhere and are not returned.
 
 #### `period` values (all analytics endpoints)
 
@@ -297,6 +352,7 @@ Response `provider` message is driven by Pine Labs (`EDCInitiateResponse` uses p
 | `GET` | `/admin/stores/{store_ref}` | **None** | Returns one store detail by numeric `id` or `store_code` (case-insensitive). |
 | `GET` | `/admin/analytics/summary` | **None** | Owner analytics across all stores (combined totals + per-store breakdown). Query: `period` (default `today`), `from_date`, `to_date`, `active_only=true\|false` (default `true`). Completed orders only. |
 | `GET` | `/admin/analytics/store-insights` | **None** | Owner decision insights per store: top ordered items, AOV, payment split, top channel. Query: `period`, `from_date`, `to_date`, `active_only`, optional `store_ids`, `store_codes`, `top_n` (default `5`). |
+| `GET` | `/admin/analytics/insights` | **None** | Customer-behaviour insights combined across stores; same response as `GET /analytics/insights`. Query: `period`, `from_date`, `to_date`, `daypart`, `active_only`, optional `store_ids`, `store_codes`. |
 | `GET` | `/admin/accounting/settlement` | **None** | Detailed financial breakdown by store for reconciliation. Gross vs Net, Total Tax, Gateway (PineLabs) breakdown by Terminal ID, Cash breakdown by Staff. Query: `period`, `from_date`, `to_date`, `active_only=true\|false`, optional `store_ids`, `store_codes`. Completed orders only. |
 | `GET` | `/admin/transactions` | **None** | Owner transaction grid across stores with filters and pagination. |
 | `GET` | `/admin/kiosk-config` | **None** | JSON **array** of all **active** stores; each element has **`store_id`**, **`store_code`**, **`store_name`**, **`pinelabs_configured`**, and **`terminals`** (PineLabs `terminal_id`, `pinelabs_store_id`, labels). Use this to configure any outlet; then use **`X-Store-Id`** on other routes. |

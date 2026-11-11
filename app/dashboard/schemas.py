@@ -140,3 +140,156 @@ class CategorySummaryResponse(BaseModel):
     to_date: Optional[date] = None
     categories: List[CategorySummaryEntry]
 
+
+
+# ─── Customer-behaviour Insights Schemas ──────────────────────────────────────
+
+InsightsDaypart = Literal["all", "breakfast", "lunch", "evening"]
+
+
+class InsightsWindow(BaseModel):
+    """Resolved IST window. `start` is null for open-ended periods (all_time)."""
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    days: int  # IST calendar days covered; used for per-day rates
+
+
+class InsightsKpis(BaseModel):
+    orders: int
+    revenue: float  # sum of order totals incl. tax (same as /analytics/summary totalRevenue)
+    avg_order_value: float
+    units: int  # sum of line quantities
+    items_per_order: float
+    takeaway_orders: int
+    takeaway_share_pct: float
+    timed_orders: int  # orders whose kitchen lines were all marked ready
+    ready_seconds_avg: Optional[float] = None  # payment -> last line ready
+    ready_seconds_median: Optional[float] = None
+
+
+class InsightsOrderTypeSide(BaseModel):
+    orders: int  # by the order's own order_type
+    revenue: float
+    units: int  # by each line's effective type (mixed orders split per line)
+    avg_order_value: float
+
+
+class InsightsDaypartSplit(BaseModel):
+    daypart: Literal["breakfast", "lunch", "evening"]
+    orders: int
+    takeaway_orders: int
+    takeaway_share_pct: float
+
+
+class InsightsPackedItem(BaseModel):
+    sku: str
+    item_name: str
+    quantity: int
+
+
+class InsightsOrderTypes(BaseModel):
+    dine_in: InsightsOrderTypeSide
+    takeaway: InsightsOrderTypeSide
+    by_daypart: List[InsightsDaypartSplit]
+    top_takeaway_items: List[InsightsPackedItem]
+    takeaway_charges_total: float  # packing charges collected, incl. tax
+    mixed_orders: int  # orders with both dine-in and takeaway lines
+
+
+class InsightsItem(BaseModel):
+    sku: str
+    item_name: str
+    quantity: int
+    revenue: float  # price x quantity
+    order_count: int
+    previous_quantity: Optional[int] = None  # null when there is no previous period
+
+
+class InsightsMover(BaseModel):
+    sku: str
+    item_name: str
+    quantity: int
+    previous_quantity: int
+    change_pct: Optional[float] = None  # null when the item did not sell in the previous period
+
+
+class InsightsCategory(BaseModel):
+    category_id: str
+    category_name: str
+    quantity: int
+    revenue: float
+    revenue_share_pct: float
+    order_count: int
+    order_share_pct: float  # share of all orders containing this category
+    timed_lines: int
+    ready_seconds_avg: Optional[float] = None  # avg per line: sent to kitchen -> ready
+
+
+class InsightsHeatCell(BaseModel):
+    weekday: int  # 0 = Sunday … 6 = Saturday (IST)
+    hour: int  # 0–23 (IST)
+    orders: int
+
+
+class InsightsDailyPoint(BaseModel):
+    date: date
+    orders: int
+    revenue: float
+
+
+class InsightsHabits(BaseModel):
+    """Order counts; divide by `orders` for rates."""
+    orders: int
+    multi_item_orders: int  # more than one unit
+    customised_orders: int  # any option, note or add-on
+    option_orders: int
+    note_orders: int
+    addon_orders: int
+    discount_orders: int
+
+
+class InsightsPair(BaseModel):
+    sku_a: str
+    item_a: str
+    sku_b: str
+    item_b: str
+    orders: int
+    share_pct: float  # share of all orders that had both
+
+
+class InsightsCustomisation(BaseModel):
+    option: str
+    category_id: str
+    category_name: str
+    quantity: int
+    share_pct: float  # share of that category's units ordered with this option
+
+
+class InsightsSuggestion(BaseModel):
+    kind: Literal["star", "up", "warn", "idea", "clock"]
+    text: str
+
+
+class InsightsResponse(BaseModel):
+    """Customer-behaviour analytics. Completed orders only; IST windows."""
+    period: DashboardPeriod
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
+    daypart: InsightsDaypart
+    store_ids: List[int]
+    window: InsightsWindow
+    previous_window: Optional[InsightsWindow] = None
+    kpis: InsightsKpis
+    previous_kpis: Optional[InsightsKpis] = None
+    order_types: InsightsOrderTypes
+    best_sellers: List[InsightsItem]
+    slow_movers: List[InsightsItem]
+    movers: List[InsightsMover]
+    categories: List[InsightsCategory]
+    category_mapping_available: bool
+    heatmap: List[InsightsHeatCell]
+    daily: List[InsightsDailyPoint]
+    habits: InsightsHabits
+    pairs: List[InsightsPair]
+    customisations: List[InsightsCustomisation]
+    suggestions: List[InsightsSuggestion]

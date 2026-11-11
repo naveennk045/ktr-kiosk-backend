@@ -2,7 +2,7 @@ import logging
 import re
 import time
 from uuid import uuid4
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
@@ -11,7 +11,8 @@ import redis.asyncio as redis
 
 from app.db.session import engine, Base, SessionLocal
 from app.db.bootstrap import ensure_default_store
-from .routers import catalog, order, admin, petpooja, itemdetails, discount
+from .routers import auth, catalog, order, admin, petpooja, itemdetails, discount
+from app.core.auth import require_admin
 from .routers.payment import payment
 from app.core.config import settings
 from app.dashboard import analytics_router, orders_read_router
@@ -209,6 +210,10 @@ SLOW_REQUEST_MS = 2000
 _MAX_LOGGED_BODY = 4096
 
 
+# The log stream is an EventSource, which can only pass the session token in the URL.
+_ACCESS_TOKEN_IN_QUERY = re.compile(r"(access_token=)[^&]*")
+
+
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     """One summary line per request: method, path, status, duration, store, order, masked body."""
@@ -223,7 +228,12 @@ async def request_logging_middleware(request: Request, call_next):
     bind_log_context(store_id=(request.headers.get("x-store-id") or "").strip() or None)
 
     body_json = None
-    if method in ("POST", "PUT", "PATCH") and "application/json" in request.headers.get("content-type", ""):
+    # Sign-in bodies carry a password: never read them into the log.
+    if (
+        method in ("POST", "PUT", "PATCH")
+        and not path.startswith("/auth/")
+        and "application/json" in request.headers.get("content-type", "")
+    ):
         try:
             body = await request.body()
             if body:
@@ -252,7 +262,7 @@ async def request_logging_middleware(request: Request, call_next):
         "event": "http.request",
         "method": method,
         "path": path,
-        "query": request.url.query or None,
+        "query": _ACCESS_TOKEN_IN_QUERY.sub(r"\1<redacted>", request.url.query) or None,
         "client_ip": request.client.host if request.client else None,
         "user_agent": request.headers.get("user-agent"),
     }
@@ -301,14 +311,19 @@ def read_root():
 
 
 # Routers
+# Dashboard (KTR One) routes need a signed-in admin (Bearer token from POST /auth/login).
+# Everything a kiosk, kitchen screen, token board or payment/POS webhook calls stays open.
+admin_only = [Depends(require_admin)]
+app.include_router(auth.router)
 app.include_router(catalog.router, prefix="/catalog", tags=["catalog"])
 app.include_router(order.router, prefix="/orders", tags=["orders"])
-app.include_router(orders_read_router, prefix="/orders", tags=["dashboard"])
+app.include_router(orders_read_router, prefix="/orders", tags=["dashboard"], dependencies=admin_only)
 app.include_router(payment.router, prefix="/payments", tags=["payments"])
-app.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
+app.include_router(analytics_router, prefix="/analytics", tags=["analytics"], dependencies=admin_only)
+app.include_router(admin.public_router)
 app.include_router(admin.router)
 app.include_router(petpooja.router, prefix="/petpooja", tags=["petpooja"])
 app.include_router(kds_router, prefix="/kds", tags=["kds"])
 app.include_router(tms_router, prefix="/tms", tags=["tms"])
-app.include_router(itemdetails.router, prefix="/itemdetails", tags=["itemdetails"])
+app.include_router(itemdetails.router, prefix="/itemdetails", tags=["itemdetails"], dependencies=admin_only)
 app.include_router(discount.router)
