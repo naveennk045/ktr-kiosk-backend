@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import asc, case, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import require_admin
 from app.core.dependencies import get_db, get_redis_client, get_store_context
 from app.db.models.cash_pin import CashPin
 from app.db.models.order import (
@@ -30,11 +31,14 @@ from app.db.models.store import (
     StorePhonePeCredentials,
     StorePinelabsCredentials,
 )
-from app.dashboard.schemas import DashboardPeriod
+from app.dashboard.schemas import DashboardPeriod, InsightsDaypart, InsightsResponse
 from app.services.store_cache import invalidate_store_cache
 from app.core.log_reader import LOG_FILE_PATH, LogFilters, log_files, parse_line, read_entries
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+# Dashboard-only routes: a signed-in admin is required for every route on `router`.
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+# Open routes that kiosks, kitchen screens and token boards call while setting themselves up.
+public_router = APIRouter(prefix="/admin", tags=["admin"])
 IST = ZoneInfo("Asia/Kolkata")
 
 
@@ -775,6 +779,49 @@ async def get_store_owner_insights(
     )
 
 
+@router.get("/analytics/insights", response_model=InsightsResponse)
+async def get_multi_store_insights(
+    db: AsyncSession = Depends(get_db),
+    redis_client: redis.Redis = Depends(get_redis_client),
+    period: DashboardPeriod = Query(
+        "today",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Required when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    daypart: InsightsDaypart = Query("all"),
+    active_only: bool = Query(True),
+    store_ids: str | None = Query(None, description="CSV list, e.g. 1,2"),
+    store_codes: str | None = Query(None, description="CSV list, e.g. KTRBANDRA,KTRVERSOVA"),
+):
+    """
+    Customer-behaviour insights combined across the selected stores (same shape as
+    `GET /analytics/insights`). Completed orders only.
+    """
+    from app.dashboard.insights import InsightsBuilder
+
+    store_stmt = select(Store.id).order_by(Store.id)
+    if active_only:
+        store_stmt = store_stmt.where(Store.is_active.is_(True))
+    ids = _parse_csv_ints(store_ids)
+    if ids:
+        store_stmt = store_stmt.where(Store.id.in_(ids))
+    codes = _parse_csv_strs(store_codes)
+    if codes:
+        store_stmt = store_stmt.where(func.lower(Store.store_code).in_([c.lower() for c in codes]))
+    selected_store_ids = list((await db.execute(store_stmt)).scalars().all())
+
+    return await InsightsBuilder(db, selected_store_ids, redis_client).build(
+        period, from_date, to_date, daypart
+    )
+
+
 @router.get("/accounting/settlement", response_model=AccountingSettlementResponse)
 async def get_accounting_settlement(
     db: AsyncSession = Depends(get_db),
@@ -929,7 +976,7 @@ async def get_accounting_settlement(
         stores=store_settlements,
     )
 
-@router.get("/kiosk-config", response_model=List[KioskConfigResponse])
+@public_router.get("/kiosk-config", response_model=List[KioskConfigResponse])
 async def get_kiosk_config(db: AsyncSession = Depends(get_db)):
     """
     **All active stores** — metadata and PineLabs `kiosk_terminals` per outlet.

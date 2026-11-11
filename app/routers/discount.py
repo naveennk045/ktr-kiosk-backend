@@ -2,6 +2,7 @@ import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 
+from app.core.auth import require_admin
 from app.core.dependencies import get_discount_service, get_store_context_flexible
 from app.db.models.store import Store
 from app.db.schemas.discount import (
@@ -17,7 +18,7 @@ from app.services.discount_service import DiscountService
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/discounts", tags=["discounts"])
 
-@router.get("", response_model=List[DiscountResponse])
+@router.get("", response_model=List[DiscountResponse], dependencies=[Depends(require_admin)])
 async def list_discounts(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -91,7 +92,7 @@ async def validate_discount(
             detail="Could not validate discount."
         )
 
-@router.get("/{discount_id}", response_model=DiscountResponse)
+@router.get("/{discount_id}", response_model=DiscountResponse, dependencies=[Depends(require_admin)])
 async def get_discount(
     discount_id: int,
     store: Store = Depends(get_store_context_flexible),
@@ -124,7 +125,7 @@ async def get_discount(
         usage_count=usage_count
     )
 
-@router.post("", response_model=DiscountResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=DiscountResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 async def create_discount(
     request: DiscountCreate,
     store: Store = Depends(get_store_context_flexible),
@@ -172,7 +173,7 @@ async def create_discount(
             detail="Could not create discount."
         )
 
-@router.put("/{discount_id}", response_model=DiscountResponse)
+@router.put("/{discount_id}", response_model=DiscountResponse, dependencies=[Depends(require_admin)])
 async def update_discount(
     discount_id: int,
     request: DiscountUpdate,
@@ -224,7 +225,7 @@ async def update_discount(
         usage_count=usage_count
     )
 
-@router.patch("/{discount_id}/status", response_model=DiscountResponse)
+@router.patch("/{discount_id}/status", response_model=DiscountResponse, dependencies=[Depends(require_admin)])
 async def update_discount_status(
     discount_id: int,
     request: DiscountStatusUpdate,
@@ -265,7 +266,7 @@ async def update_discount_status(
         usage_count=usage_count
     )
 
-@router.delete("/{discount_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{discount_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(require_admin)])
 async def delete_discount(
     discount_id: int,
     store: Store = Depends(get_store_context_flexible),

@@ -24,6 +24,8 @@ from app.dashboard.schemas import (
     CategoryItemEntry,
     CategorySummaryEntry,
     CategorySummaryResponse,
+    InsightsDaypart,
+    InsightsResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -561,3 +563,17 @@ class DashboardService:
             categories=categories_response
         )
 
+    # ─── Customer-behaviour Insights ───────────────────────────────────────────────
+
+    async def get_insights(
+        self,
+        period: DashboardPeriod,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        daypart: InsightsDaypart = "all",
+    ) -> InsightsResponse:
+        from app.dashboard.insights import InsightsBuilder
+
+        return await InsightsBuilder(self.db, [self.store_id], self.redis).build(
+            period, from_date, to_date, daypart
+        )

@@ -15,6 +15,8 @@ from app.dashboard.schemas import (
     ItemDailyResponse,
     ItemSummaryResponse,
     CategorySummaryResponse,
+    InsightsDaypart,
+    InsightsResponse,
 )
 from app.dashboard.service import DashboardService
 
@@ -210,3 +212,33 @@ async def get_category_summary(
     """
     return await service.get_category_summary(period, from_date, to_date)
 
+
+@analytics_router.get("/insights", response_model=InsightsResponse)
+async def get_insights(
+    period: DashboardPeriod = Query(
+        "today",
+        description="IST window: today, yesterday, last_week, all_time, or custom_range.",
+    ),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (IST, inclusive). Used when period=custom_range. Format: YYYY-MM-DD.",
+    ),
+    daypart: InsightsDaypart = Query(
+        "all",
+        description="Optional time-of-day filter (IST hour): breakfast (<11), lunch (11-15), evening (16+).",
+    ),
+    service: DashboardService = Depends(get_dashboard_service),
+):
+    """
+    **Customer-behaviour insights** for the period (completed orders only).
+
+    KPIs with previous-period comparison, dine-in vs takeaway, best and slowest items,
+    rising/falling items, revenue by category, hour x weekday heatmap, orders per day,
+    ordering habits, items bought together, customisations, kitchen speed and
+    rule-based suggestions.
+    """
+    return await service.get_insights(period, from_date, to_date, daypart)
